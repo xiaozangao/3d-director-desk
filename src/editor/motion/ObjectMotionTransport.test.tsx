@@ -40,7 +40,7 @@ it("shows a complete, accessible transport in the regular editor", () => {
   expect(screen.getByRole("slider", { name: "场景动作时间轴" })).toHaveValue("0.25");
   expect(screen.getByLabelText("当前动作时间")).toHaveTextContent("2.0 秒");
   expect(screen.getByRole("spinbutton", { name: "动作总时长（秒）" })).toHaveValue(8);
-  expect(screen.getByText("路线点、每段动作和朝向请在右侧“路线”页编辑")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "记录当前位置路线：角色01" })).toBeEnabled();
   expect(screen.getByRole("button", { name: "删除角色01当前路线点" })).toBeDisabled();
 });
 
@@ -56,7 +56,8 @@ it("lets users change the shared action duration up to 30 seconds from the botto
   expect(durationInput).toHaveValue(30);
 });
 
-it("keeps character route editing out of the playback transport", () => {
+it("records, seeks to, updates, and deletes object motion points", async () => {
+  const user = userEvent.setup();
   useDirectorStore.setState({
     ...useDirectorStore.getState(),
     selectedObjectId: "char_default_a",
@@ -65,9 +66,26 @@ it("keeps character route editing out of the playback transport", () => {
 
   render(<ObjectMotionTransport />);
 
-  expect(screen.queryByRole("button", { name: /记录起点|记录当前位置/ })).not.toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "删除角色01当前路线点" })).toBeDisabled();
-  expect(screen.getByText("路线点、每段动作和朝向请在右侧“路线”页编辑")).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "记录起点路线：角色01" }));
+  expect(screen.getByRole("button", { name: "跳转到角色01路线点 1" })).toHaveAttribute("aria-pressed", "true");
+
+  useDirectorStore.getState().updateObjectTransform("char_default_a", { position: [3, 0, 0] });
+  fireEvent.change(screen.getByRole("slider", { name: "场景动作时间轴" }), { target: { value: "0.5" } });
+  await user.click(screen.getByRole("button", { name: "记录当前位置路线：角色01" }));
+
+  expect(useDirectorStore.getState().project.objects.find((object) => object.id === "char_default_a")?.motionPath?.keyframes)
+    .toMatchObject([
+      { time: 0, transform: { position: [0, 0, 0] } },
+      { time: 0.5, transform: { position: [3, 0, 0] } },
+    ]);
+  expect(screen.getByRole("button", { name: "跳转到角色01路线点 2" })).toHaveAttribute("aria-pressed", "true");
+
+  await user.click(screen.getByRole("button", { name: "跳转到角色01路线点 1" }));
+  expect(useDirectorStore.getState().cameraMotionProgress).toBe(0);
+  await user.click(screen.getByRole("button", { name: "删除角色01当前路线点" }));
+
+  expect(useDirectorStore.getState().project.objects.find((object) => object.id === "char_default_a")?.motionPath?.keyframes)
+    .toHaveLength(1);
 });
 
 it("controls global action playback and rewinds before replaying from the end", async () => {

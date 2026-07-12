@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { DEFAULT_CAMERA_MOTION_PATH, getCameraMotionPath } from "../schema/cameraMotion";
 import { normalizeObjectMotionPath } from "../schema/objectMotion";
+import { CHARACTER_ACTION_PRESETS } from "../presets/characterActionPresets";
 import { useDirectorStore } from "../store/directorStore";
 import "./objectMotionTransport.css";
 
@@ -36,8 +37,10 @@ export function ObjectMotionTransport() {
       ?? state.project.cameras[0]
   );
   const addObjectMotionKeyframe = useDirectorStore((state) => state.addObjectMotionKeyframe);
+  const insertObjectMotionKeyframeAfter = useDirectorStore((state) => state.insertObjectMotionKeyframeAfter);
   const deleteObjectMotionKeyframe = useDirectorStore((state) => state.deleteObjectMotionKeyframe);
   const selectObjectMotionKeyframe = useDirectorStore((state) => state.selectObjectMotionKeyframe);
+  const updateObjectMotionKeyframe = useDirectorStore((state) => state.updateObjectMotionKeyframe);
   const setProgress = useDirectorStore((state) => state.setCameraMotionProgress);
   const setPlaying = useDirectorStore((state) => state.setCameraMotionPlaying);
   const updateCameraMotionPath = useDirectorStore((state) => state.updateCameraMotionPath);
@@ -62,7 +65,7 @@ export function ObjectMotionTransport() {
   const isAtStart = progress <= CURRENT_KEYFRAME_TOLERANCE;
   const isCharacterRoute = selectedObject?.kind === "character";
   const pointLabel = isCharacterRoute ? "路线点" : "动作点";
-  const recordLabel = isAtStart ? "记录起点" : "记录当前位置";
+  const recordLabel = isAtStart ? `记录起点${isCharacterRoute ? "路线" : ""}` : `记录当前位置${isCharacterRoute ? "路线" : ""}`;
 
   function togglePlayback() {
     if (!hasPlayableObjectMotion) return;
@@ -125,7 +128,7 @@ export function ObjectMotionTransport() {
             : <Package size={17} />}
         </span>
         <span className="object-motion-transport__subject-copy">
-          <small>{selectedObject ? isCharacterRoute ? "人物路线播放" : `${objectKindLabel}动作` : "人物 / 道具动作"}</small>
+          <small>{selectedObject ? `${objectKindLabel}动作` : "人物 / 道具动作"}</small>
           <strong title={selectedObject?.name}>
             {selectedObject?.name ?? "请先选中人物或道具"}
           </strong>
@@ -186,28 +189,28 @@ export function ObjectMotionTransport() {
       </div>
 
       <div className="object-motion-transport__editor">
-        {!isCharacterRoute ? <>
-          <button
-            className="object-motion-transport__record"
-            type="button"
-            disabled={!selectedObject}
-            aria-label={selectedObject ? `${recordLabel}：${selectedObject.name}` : "记录人物或道具动作点"}
-            onClick={() => {
-              if (!selectedObject) return;
-              setPlaying(false);
-              const recorded = addObjectMotionKeyframe(selectedObject.id, progress);
-              if (recorded) selectObjectMotionKeyframe(recorded);
-            }}
-          >
-            <MapPinPlus aria-hidden="true" size={15} />
-            {recordLabel}
-          </button>
-          <div
-            className="object-motion-transport__keyframes"
-            role="group"
-            aria-label={selectedObject ? `${selectedObject.name}动作点` : "动作点"}
-          >
-            {keyframes.length > 0 ? keyframes.map((keyframe, index) => {
+        <button
+          className="object-motion-transport__record"
+          type="button"
+          disabled={!selectedObject}
+          aria-label={selectedObject ? `${recordLabel}：${selectedObject.name}` : "记录人物或道具动作点"}
+          onClick={() => {
+            if (!selectedObject) return;
+            setPlaying(false);
+            const recorded = addObjectMotionKeyframe(selectedObject.id, progress);
+            if (recorded) selectObjectMotionKeyframe(recorded);
+          }}
+        >
+          <MapPinPlus aria-hidden="true" size={15} />
+          {recordLabel}
+        </button>
+
+        <div
+          className="object-motion-transport__keyframes"
+          role="group"
+          aria-label={selectedObject ? `${selectedObject.name}动作点` : "动作点"}
+        >
+          {keyframes.length > 0 ? keyframes.map((keyframe, index) => {
             const isCurrent = keyframe.id === currentKeyframe?.id;
             return (
               <button
@@ -225,16 +228,59 @@ export function ObjectMotionTransport() {
                 {index + 1}
               </button>
             );
-            }) : (
-              <small>{selectedObject ? "还没有动作点" : "选择对象后记录动作"}</small>
-            )}
-          </div>
-        </> : <span className="object-motion-transport__route-hint">路线点、每段动作和朝向请在右侧“路线”页编辑</span>}
+          }) : (
+            <small>{selectedObject ? `还没有${pointLabel}` : "选择对象后记录动作"}</small>
+          )}
+        </div>
+
+        {isCharacterRoute && selectedObject && currentKeyframe ? (
+          <>
+            <button
+              className="object-motion-transport__record"
+              type="button"
+              aria-label={`在${selectedObject.name}当前路线点后插入`}
+              disabled={keyframes.findIndex((item) => item.id === currentKeyframe.id) >= keyframes.length - 1}
+              onClick={() => {
+                const inserted = insertObjectMotionKeyframeAfter(selectedObject.id, currentKeyframe.id);
+                if (inserted) selectObjectMotionKeyframe(inserted);
+              }}
+            >
+              <MapPinPlus aria-hidden="true" size={15} />
+              插入点
+            </button>
+            <label className="object-motion-transport__duration-control">
+              <span>本段动作</span>
+              <select
+                aria-label={`${selectedObject.name}当前路线段动作`}
+                value={currentKeyframe.actionPresetId ?? ""}
+                onChange={(event) => updateObjectMotionKeyframe(selectedObject.id, currentKeyframe.id, {
+                  actionPresetId: event.currentTarget.value || null,
+                })}
+              >
+                <option value="">自动行走</option>
+                {CHARACTER_ACTION_PRESETS.map((preset) => <option key={preset.id} value={preset.id}>{preset.label}</option>)}
+              </select>
+            </label>
+            <label className="object-motion-transport__duration-control">
+              <span>朝向</span>
+              <select
+                aria-label={`${selectedObject.name}当前路线点朝向`}
+                value={currentKeyframe.facingMode ?? "manual"}
+                onChange={(event) => updateObjectMotionKeyframe(selectedObject.id, currentKeyframe.id, {
+                  facingMode: event.currentTarget.value === "path" ? "path" : "manual",
+                })}
+              >
+                <option value="path">面向下一个点</option>
+                <option value="manual">手动方向</option>
+              </select>
+            </label>
+          </>
+        ) : null}
 
         <button
           className="object-motion-transport__delete"
           type="button"
-          disabled={isCharacterRoute || !selectedObject || !currentKeyframe}
+          disabled={!selectedObject || !currentKeyframe}
           aria-label={selectedObject ? `删除${selectedObject.name}当前${pointLabel}` : "删除当前动作点"}
           onClick={() => {
             if (!selectedObject || !currentKeyframe) return;

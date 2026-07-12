@@ -230,20 +230,6 @@ it("inserts and edits a character route point", () => {
   expect(useDirectorStore.getState().selectedObjectMotionKeyframeId).toBe(insertedId);
 });
 
-it("adds character route points without overwriting an existing point", () => {
-  useDirectorStore.setState(createInitialDirectorState());
-  const characterId = "char_default_a";
-  const firstId = useDirectorStore.getState().addCharacterRoutePoint(characterId);
-  const secondId = useDirectorStore.getState().addCharacterRoutePoint(characterId);
-  const path = useDirectorStore.getState().project.objects.find((item) => item.id === characterId)?.motionPath;
-
-  expect(path?.keyframes).toMatchObject([
-    { id: firstId, time: 0, transform: { position: [0, 0, 0] } },
-    { id: secondId, time: 1, facingMode: "path", transform: { position: [0, 0, 1.5] } },
-  ]);
-  expect(useDirectorStore.getState().selectedObjectMotionKeyframeId).toBe(secondId);
-});
-
 it("updates the viewport aspect ratio selection in ui state", () => {
   useDirectorStore.setState(createInitialDirectorState());
 

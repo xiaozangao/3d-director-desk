@@ -41,7 +41,7 @@ export function CharacterPanel() {
   const applyCrowdActionPreset = useDirectorStore((state) => state.applyCrowdActionPreset);
   const setCameraMotionProgress = useDirectorStore((state) => state.setCameraMotionProgress);
   const setCameraMotionPlaying = useDirectorStore((state) => state.setCameraMotionPlaying);
-  const addCharacterRoutePoint = useDirectorStore((state) => state.addCharacterRoutePoint);
+  const addObjectMotionKeyframe = useDirectorStore((state) => state.addObjectMotionKeyframe);
   const insertObjectMotionKeyframeAfter = useDirectorStore((state) => state.insertObjectMotionKeyframeAfter);
   const deleteObjectMotionKeyframe = useDirectorStore((state) => state.deleteObjectMotionKeyframe);
   const selectedObjectMotionKeyframeId = useDirectorStore((state) => state.selectedObjectMotionKeyframeId);
@@ -359,7 +359,7 @@ export function CharacterPanel() {
         <InspectorSection title="姿势预设" className="pose-preset-section">
           {role.characterRig ? (
             <>
-              <div className="character-route-actions" aria-label="路线编辑操作">
+              <div className="preset-grid">
                 {MANNEQUIN_POSE_PRESETS.map((preset) => (
                   <button
                     key={preset.id}
@@ -450,7 +450,7 @@ export function CharacterPanel() {
                   type="button"
                   onClick={() => {
                     setCameraMotionPlaying(false);
-                    const id = addCharacterRoutePoint(role.id);
+                    const id = addObjectMotionKeyframe(role.id, cameraMotionProgress);
                     if (id) selectObjectMotionKeyframe(id);
                   }}
                 >
@@ -479,7 +479,7 @@ export function CharacterPanel() {
                   删除路线点
                 </button>
               </div>
-              <div className="character-route-points" role="group" aria-label="人物路线点列表">
+              <div className="preset-grid" role="group" aria-label="人物路线点列表">
                 {routePath.keyframes.map((point, index) => (
                   <button
                     key={point.id}
@@ -492,13 +492,13 @@ export function CharacterPanel() {
                       setCameraMotionProgress(point.time);
                     }}
                   >
-                    <strong>{index + 1}</strong>
-                    <span>{(point.time * timelineDuration).toFixed(1)} 秒</span>
+                    {index + 1}
+                    <small>{(point.time * timelineDuration).toFixed(1)} 秒</small>
                   </button>
                 ))}
               </div>
               {selectedRoutePoint ? (
-                <InspectorSection title={`路线点 ${routePath.keyframes.findIndex((point) => point.id === selectedRoutePoint.id) + 1}`} className="character-route-editor">
+                <InspectorSection title={`路线点 ${routePath.keyframes.findIndex((point) => point.id === selectedRoutePoint.id) + 1}`} className="pose-adjust-section">
                   <InspectorRangeNumberField
                     label="到达时间"
                     rangeAriaLabel="路线点到达时间滑杆"

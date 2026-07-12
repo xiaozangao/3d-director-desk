@@ -134,7 +134,6 @@ export interface DirectorActions {
   removePanoramaAsset: () => void;
   removeImportedAsset: (assetId: string) => void;
   updateObjectTransform: (id: string, patch: Partial<DirectorTransform>) => void;
-  addCharacterRoutePoint: (characterId: string) => string | null;
   addObjectMotionKeyframe: (objectId: string, time: number) => string | null;
   insertObjectMotionKeyframeAfter: (objectId: string, keyframeId: string) => string | null;
   selectObjectMotionKeyframe: (keyframeId: string | null) => void;
@@ -1573,60 +1572,6 @@ export const useDirectorStore = create<DirectorStore>((set, get) => {
         };
       });
       return recordedId;
-    },
-    addCharacterRoutePoint: (characterId) => {
-      let routePointId: string | null = null;
-      commitMutation((state) => {
-        const character = state.project.objects.find((item) => item.id === characterId && item.kind === "character");
-        if (!character) return state;
-        const motionPath = normalizeObjectMotionPath(character.motionPath, character.transform);
-        const existing = motionPath.keyframes;
-        routePointId = getNextSequentialId(
-          existing.map((item) => item.id),
-          `${characterId}_motion_key_`,
-          existing.length + 1
-        );
-        const last = existing[existing.length - 1];
-        const previous = existing[existing.length - 2];
-        const existingDirection = last && previous
-          ? [last.transform.position[0] - previous.transform.position[0], last.transform.position[2] - previous.transform.position[2]] as const
-          : [Math.sin(last?.transform.rotation[1] ?? character.transform.rotation[1]), Math.cos(last?.transform.rotation[1] ?? character.transform.rotation[1])] as const;
-        const directionLength = Math.hypot(existingDirection[0], existingDirection[1]) || 1;
-        const nextPosition: [number, number, number] = last
-          ? [
-              last.transform.position[0] + (existingDirection[0] / directionLength) * 1.5,
-              last.transform.position[1],
-              last.transform.position[2] + (existingDirection[1] / directionLength) * 1.5,
-            ]
-          : [...character.transform.position];
-        const nextKeyframe: DirectorObjectMotionKeyframe = {
-          id: routePointId,
-          time: existing.length === 0 ? 0 : 1,
-          transform: {
-            position: nextPosition,
-            rotation: [...(last?.transform.rotation ?? character.transform.rotation)],
-            scale: [...(last?.transform.scale ?? character.transform.scale)],
-          },
-          actionPresetId: null,
-          facingMode: "path",
-        };
-        const keyframes = existing.length === 0
-          ? [nextKeyframe]
-          : [...existing.map((item, index) => ({ ...item, time: index / existing.length })), nextKeyframe];
-        return {
-          ...state,
-          selectedObjectMotionKeyframeId: routePointId,
-          cameraMotionProgress: nextKeyframe.time,
-          cameraMotionPlaying: false,
-          project: {
-            ...state.project,
-            objects: state.project.objects.map((item) =>
-              item.id === characterId ? { ...item, motionPath: { ...motionPath, keyframes } } : item
-            ),
-          },
-        };
-      });
-      return routePointId;
     },
     insertObjectMotionKeyframeAfter: (objectId, keyframeId) => {
       let insertedId: string | null = null;
