@@ -121,13 +121,39 @@ textarea:focus-visible {
 }
 
 .director-home-shell {
-  min-height: 100%;
-  overflow: auto;
+  height: 100dvh;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: scroll;
+  overscroll-behavior-y: contain;
+  scroll-behavior: smooth;
+  scrollbar-gutter: stable;
   padding: 64px clamp(24px, 6vw, 84px);
   background:
     radial-gradient(circle at 18% 12%, rgb(var(--accent-rgb) / 0.22), transparent 28%),
     radial-gradient(circle at 82% 0%, rgba(255, 255, 255, 0.08), transparent 24%),
     linear-gradient(135deg, rgb(var(--bg-rgb)), rgb(var(--surface-rgb) / 0.78));
+}
+
+.director-home-shell::-webkit-scrollbar {
+  width: 11px;
+}
+
+.director-home-shell::-webkit-scrollbar-track {
+  border-left: 1px solid rgb(var(--border-rgb) / 0.24);
+  background: rgb(var(--surface-rgb) / 0.48);
+}
+
+.director-home-shell::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: rgb(var(--accent-rgb) / 0.72);
+  background-clip: padding-box;
+}
+
+.director-home-shell::-webkit-scrollbar-thumb:hover {
+  background: rgb(var(--accent-rgb) / 0.95);
+  background-clip: padding-box;
 }
 
 .director-home-hero {
@@ -194,6 +220,28 @@ textarea:focus-visible {
 
 .director-home-primary-button:active {
   transform: translateY(0);
+}
+
+.director-home-hero-actions {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+
+.director-home-scroll-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: rgb(var(--text-muted-rgb));
+  font-size: 11px;
+  text-decoration: none;
+  transition: color 0.18s ease;
+}
+
+.director-home-scroll-hint:hover,
+.director-home-scroll-hint:focus-visible {
+  color: rgb(var(--accent-rgb));
 }
 
 .director-home-grid {
@@ -381,13 +429,120 @@ textarea:focus-visible {
 }
 
 .director-home-guide,
-.director-home-release {
+.director-home-release,
+.director-home-controls {
   max-width: 1120px;
   margin: 38px auto 0;
   border: 1px solid rgb(var(--border-rgb) / 0.5);
   border-radius: 22px;
   padding: 24px;
   background: rgb(var(--panel-rgb) / 0.72);
+}
+
+.director-home-control-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.director-home-control-group,
+.director-home-mac-gestures,
+.director-home-tools-guide {
+  border: 1px solid rgb(var(--border-rgb) / 0.34);
+  border-radius: 12px;
+  padding: 14px;
+  background: rgb(var(--surface-rgb) / 0.42);
+}
+
+.director-home-control-group > header,
+.director-home-mac-gestures > header {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  min-height: 44px;
+  color: rgb(var(--accent-rgb));
+}
+
+.director-home-control-group h3,
+.director-home-mac-gestures h3,
+.director-home-tools-guide h3 {
+  margin: 0;
+  color: rgb(var(--text-rgb));
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.director-home-control-group header p,
+.director-home-mac-gestures header p {
+  margin: 2px 0 0;
+  color: rgb(var(--text-muted-rgb));
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.director-home-control-group dl,
+.director-home-mac-gestures dl,
+.director-home-tools-guide dl {
+  display: grid;
+  gap: 0;
+  margin: 10px 0 0;
+}
+
+.director-home-control-group dl > div,
+.director-home-mac-gestures dl > div,
+.director-home-tools-guide dl > div {
+  display: grid;
+  grid-template-columns: minmax(104px, auto) minmax(0, 1fr);
+  align-items: baseline;
+  gap: 10px;
+  border-top: 1px solid rgb(var(--border-rgb) / 0.24);
+  padding: 8px 0;
+}
+
+.director-home-control-group dt,
+.director-home-mac-gestures dt,
+.director-home-tools-guide dt {
+  width: fit-content;
+  border: 1px solid rgb(var(--border-rgb) / 0.5);
+  border-radius: 5px;
+  padding: 3px 6px;
+  color: rgb(var(--text-rgb));
+  background: rgb(var(--field-rgb));
+  font: 600 9px/1.2 "SFMono-Regular", Consolas, monospace;
+  white-space: nowrap;
+}
+
+.director-home-control-group dd,
+.director-home-mac-gestures dd,
+.director-home-tools-guide dd {
+  margin: 0;
+  color: rgb(var(--text-muted-rgb));
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+.director-home-mac-gestures {
+  margin-top: 12px;
+  border-color: rgb(var(--accent-rgb) / 0.25);
+}
+
+.director-home-mac-gestures dl {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 18px;
+}
+
+.director-home-tools-guide {
+  margin-top: 12px;
+}
+
+.director-home-tools-guide dl {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 18px;
+}
+
+.director-home-tools-guide dl > div {
+  grid-template-columns: 82px minmax(0, 1fr);
 }
 
 .director-home-section-heading {
@@ -539,12 +694,14 @@ textarea:focus-visible {
     flex-direction: column;
   }
 
-  .director-home-primary-button {
+  .director-home-hero-actions {
     align-self: flex-start;
+    justify-items: start;
   }
 
   .director-home-guide,
-  .director-home-release {
+  .director-home-release,
+  .director-home-controls {
     padding: 18px;
   }
 
@@ -554,7 +711,10 @@ textarea:focus-visible {
   }
 
   .director-home-steps,
-  .director-home-release-list {
+  .director-home-release-list,
+  .director-home-control-grid,
+  .director-home-mac-gestures dl,
+  .director-home-tools-guide dl {
     grid-template-columns: 1fr;
   }
 

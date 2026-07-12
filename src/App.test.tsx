@@ -39,9 +39,18 @@ it("returns to a real home page that lists director desks 1 through 4", async ()
   }
   expect(window.location.search).not.toContain("instanceId");
   expect(screen.getByRole("heading", { name: "四步完成第一条运镜" })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "向下查看使用说明" })).toHaveAttribute("href", "#director-home-guide-title");
   expect(screen.getByText("掌镜快捷键")).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "路线编辑、监看与导出升级" })).toBeInTheDocument();
   expect(screen.getByText("主成片 FOV 与监看小窗 FOV 已分开设置，导出使用主成片 FOV")).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "键盘、鼠标与触控板操作" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "普通导演视角" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "掌镜模式" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "通用编辑" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "macOS 触控板手势" })).toBeInTheDocument();
+  expect(screen.getByText("⌘ / Ctrl + Z")).toBeInTheDocument();
+  expect(screen.getByText("双指点按后拖动")).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "主要界面按钮" })).toBeInTheDocument();
 });
 
 it("keeps the selected director desk in the URL so refresh opens the same desk", async () => {

@@ -1,6 +1,6 @@
 import "./styles/index.css";
 import { useEffect, useState } from "react";
-import { ArrowRight, BookOpen, Boxes, Check, Clock3, House, Plus, Route, Sparkles, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowRight, BookOpen, Boxes, Check, Clock3, Hand, House, Keyboard, MousePointer2, Plus, Route, Sparkles, Trash2, X } from "lucide-react";
 import { DirectorDeskShell } from "./app/layout/DirectorDeskShell";
 import { DirectorCanvas } from "./editor/canvas/DirectorCanvas";
 import { ViewportSensitivitySettings } from "./editor/canvas/ViewportSensitivitySettings";
@@ -38,6 +38,66 @@ const HOME_RELEASE_NOTES = [
   "看成片时可随时暂停和拖动底部时间轴，不会再退出第一视角预览",
   "主成片 FOV 与监看小窗 FOV 已分开设置，导出使用主成片 FOV",
   "新增可拖动实时监看小窗、WebM 参考视频导出和更可靠的撤销逻辑",
+] as const;
+
+const HOME_CONTROL_GROUPS = [
+  {
+    title: "普通导演视角",
+    description: "摆场景和检查路线时使用",
+    controls: [
+      ["W / A / S / D", "前进、左移、后退、右移"],
+      ["Space / Shift", "上升 / 下降"],
+      ["鼠标左键拖动", "环绕观察场景"],
+      ["鼠标右键拖动", "平移观察中心"],
+      ["滚轮", "靠近 / 远离场景"],
+    ],
+  },
+  {
+    title: "掌镜模式",
+    description: "像 FPS 游戏一样录制摄影机轨迹点",
+    controls: [
+      ["W / A / S / D", "前进、左移、后退、右移"],
+      ["E / Q", "镜头上升 / 下降"],
+      ["移动鼠标", "转动镜头方向"],
+      ["Enter", "保存或更新当前轨迹点"],
+      ["Space", "播放 / 暂停人物和物体运动"],
+      ["F", "锁定或取消准星所指目标"],
+      ["滚轮", "调整镜头 FOV"],
+      ["Esc", "释放鼠标并退出掌镜"],
+      ["单击画面", "重新锁定鼠标"],
+    ],
+  },
+  {
+    title: "通用编辑",
+    description: "场景、路线点和时间轴都适用",
+    controls: [
+      ["⌘ / Ctrl + C", "复制选中的人物或物体"],
+      ["⌘ / Ctrl + V", "粘贴并选中新副本"],
+      ["⌘ / Ctrl + Z", "撤销最近一次编辑或拖动"],
+      ["Shift + 单击", "在场景树中多选 / 取消选择"],
+      ["Delete / Backspace", "删除当前选中对象"],
+      ["拖动 XYZ 字母", "连续调整对应轴数值"],
+      ["↑ / ↓", "聚焦 XYZ 字母时微调数值"],
+      ["拖动底部时间轴", "立即暂停并定位到指定时间"],
+    ],
+  },
+] as const;
+
+const HOME_MAC_GESTURES = [
+  ["单指按下并拖动", "普通导演视角中环绕观察；掌镜时直接移动手指即可转向"],
+  ["双指上下滑动", "普通视角缩放场景；掌镜模式调整镜头 FOV"],
+  ["双指点按后拖动", "开启 macOS“辅助点按”后，可平移普通导演视角"],
+  ["双指滚动首页", "上下查看完整使用说明和本次更新"],
+  ["轻点画面", "掌镜退出锁定后，重新进入鼠标锁定"],
+] as const;
+
+const HOME_TOOL_GROUPS = [
+  ["顶部", "首页、切换导演台、导演/第一视角、运镜工作台、视角手感"],
+  ["视口工具栏", "移动、旋转、缩放、添加角色、路线常亮、导入模型、模型库、添加机位"],
+  ["画面工具", "选择画幅、当前/四方位/十二方位截图、全屏"],
+  ["底部时间轴", "回到开头、播放/暂停、拖动定位、总时长、记录点、删除当前点"],
+  ["运镜工作台", "开始掌镜、添加/插入/批量移动轨迹点、看路线、看成片、导出视频"],
+  ["右侧属性", "对象 XYZ、姿势、动作、人物路线、场景地面与路径碰撞"],
 ] as const;
 
 function getUrlDirectorDeskInstanceId() {
@@ -213,10 +273,16 @@ export default function App() {
               每个导演台独立保存，重启后先回到这里选择，不会再直接打开上一次的无名工程。
             </p>
           </div>
-          <button className="director-home-primary-button" type="button" onClick={handleCreateDesk}>
-            <Plus aria-hidden="true" size={18} />
-            新建导演台
-          </button>
+          <div className="director-home-hero-actions">
+            <button className="director-home-primary-button" type="button" onClick={handleCreateDesk}>
+              <Plus aria-hidden="true" size={18} />
+              新建导演台
+            </button>
+            <a className="director-home-scroll-hint" href="#director-home-guide-title">
+              向下查看使用说明
+              <ArrowDown aria-hidden="true" size={14} />
+            </a>
+          </div>
         </section>
 
         {directorDesks.length ? (
@@ -298,6 +364,47 @@ export default function App() {
               <li key={note}><Check aria-hidden="true" size={15} /><span>{note}</span></li>
             ))}
           </ul>
+        </section>
+
+        <section className="director-home-controls" aria-labelledby="director-home-controls-title">
+          <header className="director-home-section-heading">
+            <span><Keyboard aria-hidden="true" size={16} />完整操作表</span>
+            <div>
+              <h2 id="director-home-controls-title">键盘、鼠标与触控板操作</h2>
+              <p>快捷键在输入框中不会触发；掌镜模式下请先单击 3D 画面锁定鼠标。</p>
+            </div>
+          </header>
+
+          <div className="director-home-control-grid">
+            {HOME_CONTROL_GROUPS.map((group) => (
+              <article key={group.title} className="director-home-control-group">
+                <header><MousePointer2 aria-hidden="true" size={15} /><div><h3>{group.title}</h3><p>{group.description}</p></div></header>
+                <dl>
+                  {group.controls.map(([keys, action]) => (
+                    <div key={keys}><dt>{keys}</dt><dd>{action}</dd></div>
+                  ))}
+                </dl>
+              </article>
+            ))}
+          </div>
+
+          <article className="director-home-mac-gestures">
+            <header><Hand aria-hidden="true" size={17} /><div><h3>macOS 触控板手势</h3><p>以 MacBook 默认手势和已开启“辅助点按”为准</p></div></header>
+            <dl>
+              {HOME_MAC_GESTURES.map(([gesture, action]) => (
+                <div key={gesture}><dt>{gesture}</dt><dd>{action}</dd></div>
+              ))}
+            </dl>
+          </article>
+
+          <article className="director-home-tools-guide">
+            <h3>主要界面按钮</h3>
+            <dl>
+              {HOME_TOOL_GROUPS.map(([area, actions]) => (
+                <div key={area}><dt>{area}</dt><dd>{actions}</dd></div>
+              ))}
+            </dl>
+          </article>
         </section>
       </main>
     );
