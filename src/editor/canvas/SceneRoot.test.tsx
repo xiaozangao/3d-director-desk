@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Box3, Vector3 } from "three";
 import { afterEach, beforeEach, vi } from "vitest";
 import { VIEWPORT_CAMERA_VISUAL_SCALE } from "../schema/cameraGeometry";
@@ -640,6 +640,39 @@ it("renders an editable camera motion path for the selected viewport camera", ()
   expect(screen.getByText("K2")).toBeInTheDocument();
   expect(container.querySelector('mesh[name="cam_1_motion_key_1-motion-handle"]')).toBeInTheDocument();
   expect(container.querySelector('mesh[name="cam_1_motion_key_2-motion-handle"]')).toBeInTheDocument();
+});
+
+it("renders visible character route points and selects their character without changing the preview time", () => {
+  useDirectorStore.getState().addObjectMotionKeyframe("char_default_a", 0);
+  useDirectorStore.getState().updateObjectTransform("char_default_a", { position: [3, 0, 1] });
+  useDirectorStore.getState().addObjectMotionKeyframe("char_default_a", 1);
+
+  const { container } = render(<SceneRoot />);
+  const routeLine = screen.getAllByTestId("camera-line").find((line) => line.dataset.color === "#4ADE80");
+
+  expect(routeLine).toHaveAttribute("data-point-count", "96");
+  expect(container.querySelector('mesh[name="char_default_a_motion_key_1-character-route-handle"]')).toBeInTheDocument();
+  expect(container.querySelector('mesh[name="char_default_a_motion_key_2-character-route-handle"]')).toBeInTheDocument();
+
+  useDirectorStore.getState().setCameraMotionProgress(0.35);
+  fireEvent.click(container.querySelector('mesh[name="char_default_a_motion_key_2-character-route-handle"]')!);
+  expect(useDirectorStore.getState().selectedObjectId).toBe("char_default_a");
+  expect(useDirectorStore.getState().selectedObjectMotionKeyframeId).toBe("char_default_a_motion_key_2");
+  expect(useDirectorStore.getState().cameraMotionProgress).toBe(0.35);
+});
+
+it("keeps character routes visible after the character is deselected and honors the visibility toggle", () => {
+  useDirectorStore.getState().addObjectMotionKeyframe("char_default_a", 0);
+  useDirectorStore.getState().updateObjectTransform("char_default_a", { position: [3, 0, 1] });
+  useDirectorStore.getState().addObjectMotionKeyframe("char_default_a", 1);
+
+  render(<SceneRoot />);
+  expect(screen.getAllByTestId("camera-line").some((line) => line.dataset.color === "#4ADE80")).toBe(true);
+
+  act(() => {
+    useDirectorStore.getState().setShowCharacterRoutes(false);
+  });
+  expect(screen.queryAllByTestId("camera-line").some((line) => line.dataset.color === "#4ADE80")).toBe(false);
 });
 
 it("uses one translate gizmo for the selected motion point instead of overlapping the camera gizmo", () => {

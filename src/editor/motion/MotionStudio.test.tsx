@@ -241,3 +241,30 @@ it("applies a motion parameter preset without replacing route points", async () 
   expect(path).toMatchObject({ duration: 3, interpolation: "smooth", easing: "linear" });
   expect(path?.keyframes).toHaveLength(2);
 });
+
+it("lets users retime an individual middle waypoint to control segment speed", async () => {
+  const user = userEvent.setup();
+  for (const position of [[0, 2, 8], [2, 2, 6], [5, 2, 3]] as [number, number, number][]) {
+    useDirectorStore.getState().recordCameraMotionSnapshot("cam_1", { position, target: [0, 1, 0], fov: 50 });
+  }
+  render(<MotionStudio getViewportCameraSnapshot={() => ({ position: [0, 2, 8], target: [0, 1, 0], fov: 50 })} />);
+
+  await user.click(screen.getByRole("button", { name: "选择轨迹点 2" }));
+  const arrival = screen.getByRole("spinbutton", { name: "当前轨迹点到达时间" });
+  await user.clear(arrival);
+  await user.type(arrival, "4");
+  await user.tab();
+
+  expect(useDirectorStore.getState().project.cameras[0].motionPath?.keyframes[1].time).toBeCloseTo(4 / 6);
+});
+
+it("shows a reference video export entry", async () => {
+  const user = userEvent.setup();
+  render(<MotionStudio getViewportCameraSnapshot={() => ({ position: [0, 2, 8], target: [0, 1, 0], fov: 50 })} />);
+
+  await user.click(screen.getByRole("button", { name: "导出运镜" }));
+  expect(screen.getByRole("region", { name: "导出运镜设置" })).toBeInTheDocument();
+  expect(screen.getByRole("combobox", { name: "参考视频画质" })).toHaveValue("720p");
+  expect(screen.getByRole("combobox", { name: "参考视频帧率" })).toHaveValue("30");
+  expect(screen.getByRole("button", { name: "导出 WebM" })).toBeInTheDocument();
+});

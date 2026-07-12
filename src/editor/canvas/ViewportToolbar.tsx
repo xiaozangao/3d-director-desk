@@ -19,6 +19,7 @@ import {
   Move3D,
   Plus,
   Ratio,
+  Route,
   Rotate3D,
   Scale3D,
   Trash2,
@@ -52,6 +53,7 @@ type ToolbarAction = {
   label: string;
   icon: LucideIcon;
   mode?: TransformMode;
+  pressed?: boolean;
   onClick: () => void;
 };
 
@@ -128,9 +130,11 @@ export function ViewportToolbar({
   const activeCameraId = useDirectorStore((state) => state.project.activeCameraId);
   const viewMode = useDirectorStore((state) => state.viewMode);
   const transformMode = useDirectorStore((state) => state.transformMode);
+  const showCharacterRoutes = useDirectorStore((state) => state.showCharacterRoutes);
   const viewportAspectRatio = useDirectorStore((state) => state.viewportAspectRatio);
   const setViewMode = useDirectorStore((state) => state.setViewMode);
   const setTransformMode = useDirectorStore((state) => state.setTransformMode);
+  const setShowCharacterRoutes = useDirectorStore((state) => state.setShowCharacterRoutes);
   const setViewportAspectRatio = useDirectorStore((state) => state.setViewportAspectRatio);
   const toggleViewportPanelsCollapsed = useDirectorStore((state) => state.toggleViewportPanelsCollapsed);
 
@@ -425,6 +429,12 @@ export function ViewportToolbar({
     { label: "旋转", icon: Rotate3D, mode: "rotate", onClick: () => selectTransformMode("rotate") },
     { label: "缩放", icon: Scale3D, mode: "scale", onClick: () => selectTransformMode("scale") },
     {
+      label: "显示人物路线",
+      icon: Route,
+      pressed: showCharacterRoutes,
+      onClick: () => setShowCharacterRoutes(!showCharacterRoutes),
+    },
+    {
       label: "导入本地模型",
       icon: Box,
       onClick: () => {
@@ -442,13 +452,13 @@ export function ViewportToolbar({
 
   function renderActionButton(action: ToolbarAction) {
     const Icon = action.icon;
-    const active = action.mode ? transformMode === action.mode : false;
+    const active = action.mode ? transformMode === action.mode : action.pressed ?? false;
 
     return (
       <button
         key={action.label}
         aria-label={action.label}
-        aria-pressed={action.mode ? active : undefined}
+        aria-pressed={action.mode || action.pressed !== undefined ? active : undefined}
         className={`ui-icon-button viewport-toolbar-button${active ? " is-active" : ""}`}
         type="button"
         onClick={action.onClick}

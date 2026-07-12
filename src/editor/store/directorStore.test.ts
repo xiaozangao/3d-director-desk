@@ -207,6 +207,43 @@ it("updates an object keyframe when recording again at the same time", () => {
   expect(keyframes?.[0].transform.position).toEqual([2, 0, 1]);
 });
 
+it("inserts and edits a character route point", () => {
+  useDirectorStore.setState(createInitialDirectorState());
+  const characterId = "char_default_a";
+  const startId = useDirectorStore.getState().addObjectMotionKeyframe(characterId, 0)!;
+  useDirectorStore.getState().updateObjectTransform(characterId, { position: [6, 0, 0] });
+  useDirectorStore.getState().addObjectMotionKeyframe(characterId, 1);
+
+  const insertedId = useDirectorStore.getState().insertObjectMotionKeyframeAfter(characterId, startId)!;
+  useDirectorStore.getState().updateObjectMotionKeyframe(characterId, insertedId, {
+    actionPresetId: "run-cycle",
+    facingMode: "manual",
+    transform: { position: [2, 0, 1] },
+  });
+
+  const keyframes = useDirectorStore.getState().project.objects.find((item) => item.id === characterId)?.motionPath?.keyframes;
+  expect(keyframes).toMatchObject([
+    { id: startId, time: 0, facingMode: "path" },
+    { id: insertedId, time: .5, actionPresetId: "run-cycle", facingMode: "manual", transform: { position: [2, 0, 1] } },
+    { time: 1 },
+  ]);
+  expect(useDirectorStore.getState().selectedObjectMotionKeyframeId).toBe(insertedId);
+});
+
+it("adds character route points without overwriting an existing point", () => {
+  useDirectorStore.setState(createInitialDirectorState());
+  const characterId = "char_default_a";
+  const firstId = useDirectorStore.getState().addCharacterRoutePoint(characterId);
+  const secondId = useDirectorStore.getState().addCharacterRoutePoint(characterId);
+  const path = useDirectorStore.getState().project.objects.find((item) => item.id === characterId)?.motionPath;
+
+  expect(path?.keyframes).toMatchObject([
+    { id: firstId, time: 0, transform: { position: [0, 0, 0] } },
+    { id: secondId, time: 1, facingMode: "path", transform: { position: [0, 0, 1.5] } },
+  ]);
+  expect(useDirectorStore.getState().selectedObjectMotionKeyframeId).toBe(secondId);
+});
+
 it("updates the viewport aspect ratio selection in ui state", () => {
   useDirectorStore.setState(createInitialDirectorState());
 
@@ -221,6 +258,41 @@ it("updates the viewport rule-of-thirds guide toggle in ui state", () => {
   useDirectorStore.getState().setViewportRuleOfThirdsEnabled(true);
 
   expect(useDirectorStore.getState().viewportRuleOfThirdsEnabled).toBe(true);
+});
+
+it("stores and clamps the finished-shot FOV override and can return to waypoint FOV", () => {
+  useDirectorStore.getState().setFinishedShotFov(200);
+  expect(useDirectorStore.getState().finishedShotFov).toBe(120);
+
+  useDirectorStore.getState().setFinishedShotFov(35);
+  expect(useDirectorStore.getState().finishedShotFov).toBe(35);
+
+  useDirectorStore.getState().setFinishedShotFov(null);
+  expect(useDirectorStore.getState().finishedShotFov).toBeNull();
+});
+
+it("stores the monitor FOV separately from the finished-shot FOV", () => {
+  useDirectorStore.getState().setFinishedShotFov(35);
+  useDirectorStore.getState().setMotionMonitorFov(200);
+
+  expect(useDirectorStore.getState().finishedShotFov).toBe(35);
+  expect(useDirectorStore.getState().motionMonitorFov).toBe(120);
+
+  useDirectorStore.getState().setMotionMonitorFov(null);
+  expect(useDirectorStore.getState().motionMonitorFov).toBeNull();
+  expect(useDirectorStore.getState().finishedShotFov).toBe(35);
+});
+
+it("undoes an active drag batch immediately without leaving the batch stuck", () => {
+  const characterId = "char_default_a";
+  useDirectorStore.getState().beginUndoBatch();
+  useDirectorStore.getState().updateObjectTransform(characterId, { position: [8, 0, 0] });
+
+  useDirectorStore.getState().undo();
+
+  const state = useDirectorStore.getState();
+  expect(state.project.objects.find((item) => item.id === characterId)?.transform.position).toEqual([0, 0, 0]);
+  expect((state as unknown as { undoBatchDepth: number }).undoBatchDepth).toBe(0);
 });
 
 it("updates, clamps, and resets the saved viewport sensitivity", () => {

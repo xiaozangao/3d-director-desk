@@ -55,6 +55,7 @@ it("renders the viewport capsule as project icon-system buttons", () => {
     "移动",
     "旋转",
     "缩放",
+    "显示人物路线",
     "添加角色",
     "导入本地模型",
     "模型库",
@@ -79,6 +80,18 @@ it("renders the viewport capsule as project icon-system buttons", () => {
     button.getAttribute("aria-label")
   );
   expect(toolbarButtonLabels.indexOf("模型库")).toBe(toolbarButtonLabels.indexOf("导入本地模型") + 1);
+});
+
+it("keeps character routes visible by default and lets the viewport toolbar hide them", async () => {
+  const user = userEvent.setup();
+  render(<ViewportToolbar />);
+
+  const toggle = screen.getByRole("button", { name: "显示人物路线" });
+  expect(toggle).toHaveAttribute("aria-pressed", "true");
+
+  await user.click(toggle);
+  expect(useDirectorStore.getState().showCharacterRoutes).toBe(false);
+  expect(toggle).toHaveAttribute("aria-pressed", "false");
 });
 
 it("renders custom hover labels instead of native title tooltips", () => {

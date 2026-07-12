@@ -1,6 +1,6 @@
 import "./styles/index.css";
 import { useEffect, useState } from "react";
-import { ArrowRight, Boxes, Clock3, House, Plus, Route, Trash2, X } from "lucide-react";
+import { ArrowRight, BookOpen, Boxes, Check, Clock3, House, Plus, Route, Sparkles, Trash2, X } from "lucide-react";
 import { DirectorDeskShell } from "./app/layout/DirectorDeskShell";
 import { DirectorCanvas } from "./editor/canvas/DirectorCanvas";
 import { ViewportSensitivitySettings } from "./editor/canvas/ViewportSensitivitySettings";
@@ -23,6 +23,22 @@ import {
 } from "./editor/workspaces/directorDeskRegistry";
 
 type AppScreen = "home" | "editor";
+
+const HOME_QUICK_START_STEPS = [
+  ["选择导演台", "打开已有导演台，或点击“新建导演台”创建一个空场景。"],
+  ["摆人物和道具", "从工具栏添加模型，选中后使用 XYZ 三轴移动、旋转和缩放。"],
+  ["记录镜头", "点击“运镜 → 开始掌镜”，用 WASD 移动，每到一个镜头按 Enter。"],
+  ["预演并导出", "先“看路线”检查轨迹，再“看成片”，满意后导出 WebM 参考视频。"],
+] as const;
+
+const HOME_RELEASE_NOTES = [
+  "人物路线支持添加、插入、删除和拖动，行走时会沿平滑曲线自然转向",
+  "人物路线与摄影机轨迹可常亮显示，并支持批量移动多个轨迹点",
+  "新增路径碰撞开关，可让人物贴地，并阻止人物和镜头穿过场景物体",
+  "看成片时可随时暂停和拖动底部时间轴，不会再退出第一视角预览",
+  "主成片 FOV 与监看小窗 FOV 已分开设置，导出使用主成片 FOV",
+  "新增可拖动实时监看小窗、WebM 参考视频导出和更可靠的撤销逻辑",
+] as const;
 
 function getUrlDirectorDeskInstanceId() {
   try {
@@ -158,6 +174,7 @@ export default function App() {
     function handleKeyDown(event: KeyboardEvent) {
       if (event.defaultPrevented || isEditableShortcutTarget(event.target)) return;
       if (!event.metaKey && !event.ctrlKey) return;
+      if (event.repeat) return;
 
       const key = event.key.toLowerCase();
       if (key === "c") {
@@ -241,6 +258,47 @@ export default function App() {
             <p>点击“新建导演台”创建一个干净的 3D 场景。</p>
           </section>
         )}
+
+        <section className="director-home-guide" aria-labelledby="director-home-guide-title">
+          <header className="director-home-section-heading">
+            <span><BookOpen aria-hidden="true" size={16} />第一次使用</span>
+            <div>
+              <h2 id="director-home-guide-title">四步完成第一条运镜</h2>
+              <p>不用先学习复杂的 3D 软件，按照下面顺序操作即可。</p>
+            </div>
+          </header>
+          <ol className="director-home-steps">
+            {HOME_QUICK_START_STEPS.map(([title, description], index) => (
+              <li key={title}>
+                <span>{index + 1}</span>
+                <div><strong>{title}</strong><p>{description}</p></div>
+              </li>
+            ))}
+          </ol>
+          <p className="director-home-shortcuts">
+            <strong>掌镜快捷键</strong>
+            <kbd>WASD</kbd>移动
+            <kbd>Q / E</kbd>下降 / 上升
+            <kbd>Enter</kbd>保存镜头
+            <kbd>Space</kbd>播放 / 暂停
+            <kbd>Esc</kbd>退出掌镜
+          </p>
+        </section>
+
+        <section className="director-home-release" aria-labelledby="director-home-release-title">
+          <header className="director-home-section-heading">
+            <span><Sparkles aria-hidden="true" size={16} />本次更新</span>
+            <div>
+              <h2 id="director-home-release-title">路线编辑、监看与导出升级</h2>
+              <p>这次重点补全人物运动、镜头预演和参考视频工作流。</p>
+            </div>
+          </header>
+          <ul className="director-home-release-list">
+            {HOME_RELEASE_NOTES.map((note) => (
+              <li key={note}><Check aria-hidden="true" size={15} /><span>{note}</span></li>
+            ))}
+          </ul>
+        </section>
       </main>
     );
   }

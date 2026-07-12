@@ -60,6 +60,8 @@ export function normalizeObjectMotionPath(
             id: typeof keyframe.id === "string" && keyframe.id ? keyframe.id : `object_motion_${index + 1}`,
             time: clamp(finite(keyframe.time, index)),
             transform: normalizeTransform(keyframe.transform, fallbackTransform),
+            actionPresetId: typeof keyframe.actionPresetId === "string" ? keyframe.actionPresetId : null,
+            facingMode: keyframe.facingMode === "path" ? "path" : "manual",
           };
         })
         .filter((entry): entry is DirectorObjectMotionKeyframe => Boolean(entry))
@@ -74,6 +76,17 @@ export function normalizeObjectMotionPath(
 
 function interpolate(a: number, b: number, progress: number) {
   return a + (b - a) * progress;
+}
+
+function catmullRom(a: number, b: number, c: number, d: number, progress: number) {
+  const t2 = progress * progress;
+  const t3 = t2 * progress;
+  return 0.5 * (
+    2 * b
+    + (-a + c) * progress
+    + (2 * a - 5 * b + 4 * c - d) * t2
+    + (-a + 3 * b - 3 * c + d) * t3
+  );
 }
 
 function interpolateAngle(a: number, b: number, progress: number) {
@@ -91,21 +104,68 @@ function cloneTransform(transform: DirectorTransform): DirectorTransform {
   };
 }
 
+function findMotionSegment(path: DirectorObjectMotionPath, progress: number) {
+  const p = clamp(progress);
+  let segment = 0;
+  while (segment < path.keyframes.length - 2 && p > path.keyframes[segment + 1].time) segment += 1;
+  const from = path.keyframes[segment];
+  const to = path.keyframes[Math.min(path.keyframes.length - 1, segment + 1)];
+  const local = clamp((p - from.time) / Math.max(0.000001, to.time - from.time));
+  return { from, local, segment, to };
+}
+
+function samplePosition(path: DirectorObjectMotionPath, progress: number): [number, number, number] {
+  const first = path.keyframes[0];
+  const last = path.keyframes[path.keyframes.length - 1];
+  if (progress <= first.time) return [...first.transform.position];
+  if (progress >= last.time) return [...last.transform.position];
+  const { from, local, segment, to } = findMotionSegment(path, progress);
+  if (path.interpolation === "linear" || path.keyframes.length < 3) {
+    return from.transform.position.map((value, axis) =>
+      interpolate(value, to.transform.position[axis], local)
+    ) as [number, number, number];
+  }
+  const before = path.keyframes[Math.max(0, segment - 1)];
+  const after = path.keyframes[Math.min(path.keyframes.length - 1, segment + 2)];
+  return ([0, 1, 2] as const).map((axis) => catmullRom(
+    before.transform.position[axis],
+    from.transform.position[axis],
+    to.transform.position[axis],
+    after.transform.position[axis],
+    local
+  )) as [number, number, number];
+}
+
+function getPathFacingYaw(path: DirectorObjectMotionPath, progress: number) {
+  const epsilon = 0.001;
+  const before = samplePosition(path, Math.max(path.keyframes[0].time, progress - epsilon));
+  const after = samplePosition(path, Math.min(path.keyframes[path.keyframes.length - 1].time, progress + epsilon));
+  const dx = after[0] - before[0];
+  const dz = after[2] - before[2];
+  return Math.hypot(dx, dz) > 0.000001 ? Math.atan2(dx, dz) : null;
+}
+
 export function getObjectMotionSnapshot(object: DirectorObject, progress: number): DirectorTransform {
   const path = normalizeObjectMotionPath(object.motionPath, object.transform);
   if (path.keyframes.length === 0) return cloneTransform(object.transform);
   const p = clamp(progress);
   const first = path.keyframes[0];
   const last = path.keyframes[path.keyframes.length - 1];
-  if (p <= first.time) return cloneTransform(first.transform);
-  if (p >= last.time) return cloneTransform(last.transform);
+  if (p <= first.time) {
+    const transform = cloneTransform(first.transform);
+    const yaw = object.kind === "character" && first.facingMode === "path" ? getPathFacingYaw(path, first.time) : null;
+    if (yaw != null) transform.rotation[1] = yaw;
+    return transform;
+  }
+  if (p >= last.time) {
+    const transform = cloneTransform(last.transform);
+    const previous = path.keyframes[path.keyframes.length - 2];
+    const yaw = object.kind === "character" && previous?.facingMode === "path" ? getPathFacingYaw(path, last.time) : null;
+    if (yaw != null) transform.rotation[1] = yaw;
+    return transform;
+  }
 
-  let segment = 0;
-  while (segment < path.keyframes.length - 2 && p > path.keyframes[segment + 1].time) segment += 1;
-  const from = path.keyframes[segment];
-  const to = path.keyframes[segment + 1];
-  const raw = (p - from.time) / Math.max(0.000001, to.time - from.time);
-  const local = path.interpolation === "smooth" ? raw * raw * (3 - 2 * raw) : raw;
+  const { from, local, to } = findMotionSegment(path, p);
   const mapTuple = (
     left: [number, number, number],
     right: [number, number, number],
@@ -114,11 +174,37 @@ export function getObjectMotionSnapshot(object: DirectorObject, progress: number
     angle ? interpolateAngle(value, right[axis], local) : interpolate(value, right[axis], local)
   ) as [number, number, number];
 
+  const rotation = mapTuple(from.transform.rotation, to.transform.rotation, true);
+  if (object.kind === "character" && from.facingMode === "path") {
+    const yaw = getPathFacingYaw(path, p);
+    if (yaw != null) rotation[1] = yaw;
+  }
+
   return {
-    position: mapTuple(from.transform.position, to.transform.position),
-    rotation: mapTuple(from.transform.rotation, to.transform.rotation, true),
+    position: samplePosition(path, p),
+    rotation,
     scale: mapTuple(from.transform.scale, to.transform.scale),
   };
+}
+
+export function sampleObjectMotionPath(object: DirectorObject, count = 80) {
+  const path = normalizeObjectMotionPath(object.motionPath, object.transform);
+  if (path.keyframes.length === 0) return [object.transform.position];
+  if (path.keyframes.length === 1 || count < 2) return [path.keyframes[0].transform.position];
+  const start = path.keyframes[0].time;
+  const end = path.keyframes[path.keyframes.length - 1].time;
+  return Array.from({ length: count }, (_, index) =>
+    samplePosition(path, start + (end - start) * (index / (count - 1)))
+  );
+}
+
+export function getObjectMotionActionPresetId(object: DirectorObject, progress: number) {
+  const path = normalizeObjectMotionPath(object.motionPath, object.transform);
+  if (path.keyframes.length === 0) return object.characterRig?.actionPresetId ?? null;
+  const p = clamp(progress);
+  let index = 0;
+  while (index < path.keyframes.length - 2 && p >= path.keyframes[index + 1].time) index += 1;
+  return path.keyframes[index]?.actionPresetId ?? null;
 }
 
 export function getObjectMotionSpeed(object: DirectorObject, progress: number) {

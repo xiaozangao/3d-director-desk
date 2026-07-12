@@ -677,6 +677,122 @@ it("synchronizes the real render camera on every first-person motion preview upd
   expect(mockCameraUpdateProjectionMatrix).toHaveBeenCalled();
 });
 
+it("keeps the bottom timeline available in finished-shot view and pauses when scrubbing", () => {
+  const state = useDirectorStore.getState();
+  useDirectorStore.setState({
+    ...state,
+    viewMode: "camera",
+    cameraMotionProgress: 0.25,
+    cameraMotionPlaying: true,
+    motionStudioOpen: true,
+    project: {
+      ...state.project,
+      cameras: state.project.cameras.map((camera) => ({
+        ...camera,
+        motionPath: {
+          duration: 6,
+          loop: false,
+          interpolation: "linear" as const,
+          easing: "linear" as const,
+          keyframes: [
+            { id: "preview_1", time: 0, position: [0, 2, 8] as [number, number, number], target: [0, 1, 0] as [number, number, number], fov: 50 },
+            { id: "preview_2", time: 1, position: [4, 2, 4] as [number, number, number], target: [0, 1, 0] as [number, number, number], fov: 45 },
+          ],
+        },
+      })),
+    },
+  });
+
+  render(<App />);
+
+  const timeline = screen.getByRole("slider", { name: "场景动作时间轴" });
+  expect(timeline).toHaveValue("0.25");
+  expect(screen.queryByRole("group", { name: "3D视口快捷工具" })).not.toBeInTheDocument();
+  fireEvent.change(timeline, { target: { value: "0.6" } });
+  expect(useDirectorStore.getState().cameraMotionPlaying).toBe(false);
+  expect(useDirectorStore.getState().cameraMotionProgress).toBe(0.6);
+  expect(useDirectorStore.getState().viewMode).toBe("camera");
+  expect(document.querySelector(".director-shell")).toHaveClass("is-camera-previewing");
+  expect(screen.queryByRole("group", { name: "3D视口快捷工具" })).not.toBeInTheDocument();
+  expect(screen.getByLabelText("路线实时监看")).toBeInTheDocument();
+});
+
+it("keeps the finished-shot monitor mounted while paused for timeline scrubbing", () => {
+  const state = useDirectorStore.getState();
+  useDirectorStore.setState({
+    ...state,
+    viewMode: "director",
+    motionStudioOpen: true,
+    cameraMotionPlaying: false,
+    cameraMotionProgress: 0.5,
+    project: {
+      ...state.project,
+      cameras: state.project.cameras.map((camera) => ({
+        ...camera,
+        motionPath: {
+          duration: 6,
+          loop: false,
+          interpolation: "linear" as const,
+          easing: "linear" as const,
+          keyframes: [
+            { id: "monitor_1", time: 0, position: [0, 2, 8] as [number, number, number], target: [0, 1, 0] as [number, number, number], fov: 50 },
+            { id: "monitor_2", time: 1, position: [4, 2, 4] as [number, number, number], target: [0, 1, 0] as [number, number, number], fov: 42 },
+          ],
+        },
+      })),
+    },
+  });
+
+  render(<App />);
+
+  expect(screen.getByLabelText("成片实时监看")).toBeInTheDocument();
+  expect(screen.getByLabelText("拖动监看窗口")).toBeInTheDocument();
+  expect(screen.getByRole("slider", { name: "看成片 FOV" })).toHaveValue("46");
+  expect(screen.getByRole("slider", { name: "小窗 FOV" })).toHaveValue("46");
+});
+
+it("keeps finished-shot and monitor FOV controls independent", () => {
+  const state = useDirectorStore.getState();
+  useDirectorStore.setState({
+    ...state,
+    viewMode: "director",
+    motionStudioOpen: true,
+    finishedShotFov: 36,
+    motionMonitorFov: 72,
+    project: {
+      ...state.project,
+      cameras: state.project.cameras.map((camera) => ({
+        ...camera,
+        motionPath: {
+          duration: 6,
+          loop: false,
+          interpolation: "linear" as const,
+          easing: "linear" as const,
+          keyframes: [
+            { id: "fov_1", time: 0, position: [0, 2, 8] as [number, number, number], target: [0, 1, 0] as [number, number, number], fov: 50 },
+            { id: "fov_2", time: 1, position: [4, 2, 4] as [number, number, number], target: [0, 1, 0] as [number, number, number], fov: 42 },
+          ],
+        },
+      })),
+    },
+  });
+
+  render(<App />);
+
+  const finishedSlider = screen.getByRole("slider", { name: "看成片 FOV" });
+  const monitorSlider = screen.getByRole("slider", { name: "小窗 FOV" });
+  expect(finishedSlider).toHaveValue("36");
+  expect(monitorSlider).toHaveValue("72");
+
+  fireEvent.change(monitorSlider, { target: { value: "80" } });
+  expect(useDirectorStore.getState().motionMonitorFov).toBe(80);
+  expect(useDirectorStore.getState().finishedShotFov).toBe(36);
+
+  fireEvent.change(finishedSlider, { target: { value: "40" } });
+  expect(useDirectorStore.getState().finishedShotFov).toBe(40);
+  expect(useDirectorStore.getState().motionMonitorFov).toBe(80);
+});
+
 it("adds a new waypoint for every Enter press while character action playback is paused", () => {
   const state = useDirectorStore.getState();
   useDirectorStore.setState({

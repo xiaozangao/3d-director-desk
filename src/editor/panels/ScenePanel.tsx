@@ -175,6 +175,15 @@ export function ScenePanel() {
             />
             <span>地面</span>
           </div>
+          <div className="inspector-toggle-row">
+            <input
+              aria-label="路径碰撞"
+              checked={scene.pathCollisionEnabled}
+              type="checkbox"
+              onChange={(event) => updateScene({ pathCollisionEnabled: event.target.checked })}
+            />
+            <span>路径碰撞</span>
+          </div>
         </div>
       </InspectorSection>
       {scene.showGround ? (

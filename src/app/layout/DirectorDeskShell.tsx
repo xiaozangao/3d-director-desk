@@ -7,10 +7,15 @@ export function DirectorDeskShell({ children }: { children: ReactNode }) {
   const viewportPanelsCollapsed = useDirectorStore((state) => state.viewportPanelsCollapsed);
   const motionStudioOpen = useDirectorStore((state) => state.motionStudioOpen);
   const cameraPilotMode = useDirectorStore((state) => state.cameraPilotMode);
-  const cameraMotionPlaying = useDirectorStore((state) => state.cameraMotionPlaying);
   const viewMode = useDirectorStore((state) => state.viewMode);
+  const hasCameraPreviewPath = useDirectorStore((state) => {
+    const activeCamera = state.project.cameras.find((camera) => camera.id === state.project.activeCameraId)
+      ?? state.project.cameras[0];
+    return (activeCamera?.motionPath?.keyframes.length ?? 0) >= 2;
+  });
   const isCameraPiloting = cameraPilotMode !== "idle";
-  const isCameraPreviewing = motionStudioOpen && viewMode === "camera" && cameraMotionPlaying && !isCameraPiloting;
+  const isCameraPreviewing =
+    motionStudioOpen && viewMode === "camera" && hasCameraPreviewPath && !isCameraPiloting;
 
   return (
     <div

@@ -315,6 +315,13 @@
   background: rgb(248 113 113 / 0.12);
 }
 
+.object-motion-transport__route-hint {
+  min-width: 0;
+  color: rgb(var(--text-dim-rgb));
+  font-size: 10px;
+  line-height: 15px;
+}
+
 .object-motion-transport__shortcut {
   gap: 5px;
   padding-right: 3px;

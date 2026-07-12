@@ -1,6 +1,7 @@
 import { GizmoHelper, GizmoViewport, Grid, OrbitControls } from "@react-three/drei";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { Pause, Route, Video } from "lucide-react";
+import { Move } from "lucide-react";
+import { flushSync } from "react-dom";
 import {
   Suspense,
   useCallback,
@@ -16,6 +17,11 @@ import { Euler, Matrix4, PerspectiveCamera as ThreePerspectiveCamera, Quaternion
 import type { Object3D } from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { clearViewportCaptureHandler, setViewportCaptureHandler } from "../io/captureBridge";
+import {
+  clearReferenceVideoExportHandler,
+  getSupportedReferenceVideoMimeType,
+  setReferenceVideoExportHandler,
+} from "../io/referenceVideoExport";
 import { buildScreenshotMeta, type ScreenshotResult } from "../io/screenshotExport";
 import { useDirectorStore, type CameraShotSnapshot } from "../store/directorStore";
 import { DEFAULT_DIRECTOR_CAMERA_VIEW_SNAPSHOT } from "../schema/cameraGeometry";
@@ -35,6 +41,7 @@ import { ViewportAspectOverlay } from "./ViewportAspectOverlay";
 import { ViewportBackground } from "./ViewportBackground";
 import { ViewportToolbar } from "./ViewportToolbar";
 import { getViewportAspectFrameRect, type ViewportSafeAreaInsets } from "./viewportAspectFrame";
+import { getViewportAspectRatioValue } from "../schema/viewportAspectRatio";
 
 export const DEFAULT_DIRECTOR_VIEW_SNAPSHOT: CameraShotSnapshot = DEFAULT_DIRECTOR_CAMERA_VIEW_SNAPSHOT;
 const VIEWPORT_FRAME_PADDING = 40;
@@ -538,12 +545,53 @@ function CameraViewCameraSync({
       ?? state.project.cameras[0];
     if (!activeCamera) return;
 
-    applySnapshotToCamera(
-      camera as ThreePerspectiveCamera,
-      getCameraPlaybackSnapshot(activeCamera, state.project.objects, state.cameraMotionProgress)
-    );
+    const playbackSnapshot = getCameraPlaybackSnapshot(activeCamera, state.project.objects, state.cameraMotionProgress, state.project.scene);
+    applySnapshotToCamera(camera as ThreePerspectiveCamera, {
+      ...playbackSnapshot,
+      fov: state.finishedShotFov ?? playbackSnapshot.fov,
+    });
   });
 
+  return null;
+}
+
+function PlaybackCameraSync({
+  snapshot,
+  fovOverride,
+}: {
+  snapshot: CameraShotSnapshot | undefined;
+  fovOverride: number | null;
+}) {
+  const { camera } = useThree();
+
+  useLayoutEffect(() => {
+    if (snapshot) applySnapshotToCamera(camera as ThreePerspectiveCamera, {
+      ...snapshot,
+      fov: fovOverride ?? snapshot.fov,
+    });
+  }, [camera, fovOverride, snapshot]);
+
+  useFrame(() => {
+    const state = useDirectorStore.getState();
+    const activeCamera = state.project.cameras.find((item) => item.id === state.project.activeCameraId)
+      ?? state.project.cameras[0];
+    if (!activeCamera) return;
+    const playbackSnapshot = getCameraPlaybackSnapshot(activeCamera, state.project.objects, state.cameraMotionProgress, state.project.scene);
+    applySnapshotToCamera(camera as ThreePerspectiveCamera, {
+      ...playbackSnapshot,
+      fov: fovOverride ?? playbackSnapshot.fov,
+    });
+  });
+
+  return null;
+}
+
+function FixedCameraSync({ snapshot, fovOverride }: { snapshot: CameraShotSnapshot; fovOverride: number | null }) {
+  const { camera } = useThree();
+  useLayoutEffect(() => applySnapshotToCamera(camera as ThreePerspectiveCamera, {
+    ...snapshot,
+    fov: fovOverride ?? snapshot.fov,
+  }), [camera, fovOverride, snapshot]);
   return null;
 }
 
@@ -625,6 +673,151 @@ function ViewportGizmoOverlay({
   );
 }
 
+function MotionMonitor({
+  cameraSnapshot,
+  directorSnapshot,
+  mainViewMode,
+  aspectRatio,
+  finishedShotFov,
+  monitorFov,
+  onFinishedShotFovChange,
+  onMonitorFovChange,
+}: {
+  cameraSnapshot: CameraShotSnapshot | undefined;
+  directorSnapshot: CameraShotSnapshot;
+  mainViewMode: "director" | "camera";
+  aspectRatio: number;
+  finishedShotFov: number | null;
+  monitorFov: number | null;
+  onFinishedShotFovChange: (fov: number | null) => void;
+  onMonitorFovChange: (fov: number | null) => void;
+}) {
+  const monitorCameraBase = mainViewMode === "director" ? cameraSnapshot : directorSnapshot;
+  const monitorCamera = monitorCameraBase
+    ? { ...monitorCameraBase, fov: monitorFov ?? monitorCameraBase.fov }
+    : undefined;
+  const [position, setPosition] = useState({ x: 214, y: 18 });
+  const dragRef = useRef<{ pointerX: number; pointerY: number; startX: number; startY: number } | null>(null);
+
+  useEffect(() => {
+    function handlePointerMove(event: PointerEvent) {
+      const drag = dragRef.current;
+      if (!drag) return;
+      const width = Math.min(320, Math.max(220, window.innerWidth - 640));
+      setPosition({
+        x: Math.min(Math.max(8, drag.startX + event.clientX - drag.pointerX), Math.max(8, window.innerWidth - width - 8)),
+        y: Math.min(Math.max(8, drag.startY + event.clientY - drag.pointerY), Math.max(8, window.innerHeight - 230)),
+      });
+    }
+
+    function stopDragging() {
+      dragRef.current = null;
+    }
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", stopDragging);
+    window.addEventListener("pointercancel", stopDragging);
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", stopDragging);
+      window.removeEventListener("pointercancel", stopDragging);
+    };
+  }, []);
+
+  if (!monitorCamera) return null;
+
+  return (
+    <aside
+      className="motion-monitor"
+      aria-label={mainViewMode === "director" ? "成片实时监看" : "路线实时监看"}
+      style={{ left: `${position.x}px`, top: `${position.y}px` }}
+    >
+      <header
+        aria-label="拖动监看窗口"
+        onPointerDown={(event) => {
+          event.preventDefault();
+          dragRef.current = { pointerX: event.clientX, pointerY: event.clientY, startX: position.x, startY: position.y };
+        }}
+      >
+        <span>{mainViewMode === "director" ? "成片监看" : "路线监看"}</span>
+        <small><Move aria-hidden="true" size={11} />拖动</small>
+      </header>
+      <div className="motion-monitor-canvas-wrap" style={{ aspectRatio }}>
+        <Canvas camera={{ fov: monitorCamera.fov, position: monitorCamera.position }} dpr={[1, 1.5]} gl={{ antialias: true }}>
+          <ViewportBackground
+            backgroundColor={useDirectorStore.getState().project.scene.backgroundColor}
+            backgroundBrightness={useDirectorStore.getState().project.scene.backgroundBrightness}
+            panoramaAsset={null}
+            panoramaRadius={useDirectorStore.getState().project.scene.panoramaRadius}
+            panoramaYaw={useDirectorStore.getState().project.scene.panoramaYaw}
+          />
+          <ambientLight intensity={1.15} />
+          <directionalLight intensity={1.2} position={[8, 10, 6]} />
+          {mainViewMode === "director"
+            ? <PlaybackCameraSync fovOverride={monitorFov} snapshot={cameraSnapshot} />
+            : <FixedCameraSync fovOverride={monitorFov} snapshot={directorSnapshot} />}
+          {mainViewMode === "camera" ? (
+            <OrbitControls
+              enableDamping
+              makeDefault
+              target={directorSnapshot.target}
+              rotateSpeed={0.55}
+              zoomSpeed={0.65}
+            />
+          ) : null}
+          <Suspense fallback={null}>
+            <SceneRoot renderMode={mainViewMode === "director" ? "clean-camera" : "director-monitor"} />
+          </Suspense>
+        </Canvas>
+      </div>
+      <div className="motion-monitor-fov" aria-label="看成片 FOV 设置">
+        <label>
+          <span>看成片</span>
+          <input
+            aria-label="看成片 FOV"
+            type="range"
+            min="10"
+            max="120"
+            step="1"
+            value={finishedShotFov ?? cameraSnapshot?.fov ?? 50}
+            onChange={(event) => onFinishedShotFovChange(Number(event.currentTarget.value))}
+          />
+          <output>{Math.round(finishedShotFov ?? cameraSnapshot?.fov ?? 50)}°</output>
+        </label>
+        <button type="button" disabled={finishedShotFov === null} onClick={() => onFinishedShotFovChange(null)}>
+          跟随轨迹
+        </button>
+      </div>
+      <div className="motion-monitor-fov motion-monitor-fov--secondary" aria-label="小窗 FOV 设置">
+        <label>
+          <span>小窗</span>
+          <input
+            aria-label="小窗 FOV"
+            type="range"
+            min="10"
+            max="120"
+            step="1"
+            value={monitorFov ?? monitorCameraBase?.fov ?? 50}
+            onChange={(event) => onMonitorFovChange(Number(event.currentTarget.value))}
+          />
+          <output>{Math.round(monitorFov ?? monitorCameraBase?.fov ?? 50)}°</output>
+        </label>
+        <button type="button" disabled={monitorFov === null} onClick={() => onMonitorFovChange(null)}>
+          跟随原视角
+        </button>
+      </div>
+    </aside>
+  );
+}
+
+function getReferenceVideoDimensions(quality: "720p" | "1080p", ratio: number | null) {
+  const landscapeWidth = quality === "1080p" ? 1920 : 1280;
+  const landscapeHeight = quality === "1080p" ? 1080 : 720;
+  const aspect = ratio ?? 16 / 9;
+  if (aspect >= 1) return { width: landscapeWidth, height: Math.round(landscapeWidth / aspect) };
+  return { width: Math.round(landscapeHeight * aspect), height: landscapeHeight };
+}
+
 export function DirectorCanvas() {
   const viewMode = useDirectorStore((state) => state.viewMode);
   const openSceneInspector = useDirectorStore((state) => state.openSceneInspector);
@@ -647,18 +840,26 @@ export function DirectorCanvas() {
   const stopCameraPilot = useDirectorStore((state) => state.stopCameraPilot);
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
   const toolbarRef = useRef<HTMLDivElement | null>(null);
+  const viewportContainerRef = useRef<HTMLDivElement | null>(null);
   const viewportCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const referenceVideoCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const viewportCameraSnapshotRef = useRef<CameraShotSnapshot>(DEFAULT_DIRECTOR_VIEW_SNAPSHOT);
   const [directorViewSnapshot, setDirectorViewSnapshot] = useState(DEFAULT_DIRECTOR_VIEW_SNAPSHOT);
   const [toolbarHeight, setToolbarHeight] = useState(DEFAULT_VIEWPORT_TOOLBAR_HEIGHT);
+  const [referenceVideoQuality, setReferenceVideoQuality] = useState<"720p" | "1080p">("720p");
+  const [referenceVideoRendering, setReferenceVideoRendering] = useState(false);
+  const [automaticViewportAspect, setAutomaticViewportAspect] = useState(16 / 9);
   const isCameraPiloting = cameraPilotMode !== "idle";
-  const isCameraPreviewing =
-    motionStudioOpen && viewMode === "camera" && cameraMotionPlaying && !isCameraPiloting;
-  const showViewportGrid = shouldRenderViewportGrid(false, sceneSettings.snapToGrid);
   const activeCameraMotionPath = useMemo(
     () => (activeCamera ? getCameraMotionPath(activeCamera) : undefined),
     [activeCamera]
   );
+  const isCameraPreviewing =
+    motionStudioOpen
+    && viewMode === "camera"
+    && (activeCameraMotionPath?.keyframes.length ?? 0) >= 2
+    && !isCameraPiloting;
+  const showViewportGrid = shouldRenderViewportGrid(false, sceneSettings.snapToGrid);
   const hasObjectMotion = useMemo(
     () => sceneObjects.some((item) =>
       (item.motionPath?.keyframes?.length ?? 0) >= 2 || Boolean(item.characterRig?.actionPresetId)
@@ -667,10 +868,18 @@ export function DirectorCanvas() {
   );
   const hasPlayableMotion = (activeCameraMotionPath?.keyframes.length ?? 0) >= 2 || hasObjectMotion;
   const activeMotionDuration = activeCameraMotionPath?.duration ?? DEFAULT_CAMERA_MOTION_PATH.duration;
-  const activeCameraView = activeCamera
-    ? getCameraPlaybackSnapshot(activeCamera, sceneObjects, cameraMotionProgress)
-    : undefined;
   const viewportAspectRatio = useDirectorStore((state) => state.viewportAspectRatio);
+  const finishedShotFov = useDirectorStore((state) => state.finishedShotFov);
+  const motionMonitorFov = useDirectorStore((state) => state.motionMonitorFov);
+  const setFinishedShotFov = useDirectorStore((state) => state.setFinishedShotFov);
+  const setMotionMonitorFov = useDirectorStore((state) => state.setMotionMonitorFov);
+  const activeCameraView = activeCamera
+    ? (() => {
+        const snapshot = getCameraPlaybackSnapshot(activeCamera, sceneObjects, cameraMotionProgress, sceneSettings);
+        return { ...snapshot, fov: finishedShotFov ?? snapshot.fov };
+      })()
+    : undefined;
+  const finishedShotAspectRatio = getViewportAspectRatioValue(viewportAspectRatio) ?? automaticViewportAspect;
   const viewportRuleOfThirdsEnabled = useDirectorStore((state) => state.viewportRuleOfThirdsEnabled);
   const viewportRotateSensitivity = useDirectorStore((state) => state.viewportRotateSensitivity);
   const viewportZoomSensitivity = useDirectorStore((state) => state.viewportZoomSensitivity);
@@ -767,6 +976,85 @@ export function DirectorCanvas() {
     };
   }, []);
 
+  useLayoutEffect(() => {
+    const element = viewportContainerRef.current;
+    if (!element) return;
+    const updateAspect = () => {
+      if (element.clientWidth > 0 && element.clientHeight > 0) {
+        setAutomaticViewportAspect(element.clientWidth / element.clientHeight);
+      }
+    };
+    updateAspect();
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(updateAspect);
+    observer?.observe(element);
+    window.addEventListener("resize", updateAspect);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", updateAspect);
+    };
+  }, []);
+
+  useEffect(() => {
+    setReferenceVideoExportHandler(async ({ fileName, fps, quality }) => {
+      flushSync(() => {
+        setReferenceVideoQuality(quality);
+        setReferenceVideoRendering(true);
+      });
+      try {
+        const startedWaitingAt = performance.now();
+        while (!referenceVideoCanvasRef.current && performance.now() - startedWaitingAt < 2000) {
+          await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+        }
+        const canvas = referenceVideoCanvasRef.current;
+        const mimeType = getSupportedReferenceVideoMimeType();
+        if (!canvas || !mimeType || !activeCamera || !activeCameraMotionPath || activeCameraMotionPath.keyframes.length < 2) {
+          throw new Error("当前浏览器无法导出参考视频");
+        }
+
+        const stream = canvas.captureStream(fps);
+        const recorder = new MediaRecorder(stream, {
+          mimeType,
+          videoBitsPerSecond: quality === "1080p" ? 12_000_000 : 6_000_000,
+        });
+        const chunks: Blob[] = [];
+        recorder.addEventListener("dataavailable", (event) => {
+          if (event.data.size > 0) chunks.push(event.data);
+        });
+        const stopped = new Promise<void>((resolve, reject) => {
+          recorder.addEventListener("stop", () => resolve(), { once: true });
+          recorder.addEventListener("error", () => reject(new Error("参考视频录制失败")), { once: true });
+        });
+
+        setCameraMotionPlaying(false);
+        setCameraMotionProgress(0);
+        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+        recorder.start(250);
+        setCameraMotionPlaying(true);
+        await new Promise<void>((resolve) => window.setTimeout(resolve, activeMotionDuration * 1000 + 120));
+        setCameraMotionPlaying(false);
+        setCameraMotionProgress(1);
+        recorder.stop();
+        await stopped;
+        stream.getTracks().forEach((track) => track.stop());
+
+        const blob = new Blob(chunks, { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = fileName;
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      } finally {
+        setCameraMotionPlaying(false);
+        referenceVideoCanvasRef.current = null;
+        setReferenceVideoRendering(false);
+      }
+    });
+    return () => clearReferenceVideoExportHandler();
+  }, [activeCamera, activeCameraMotionPath, activeMotionDuration, setCameraMotionPlaying, setCameraMotionProgress]);
+
   function getViewportCameraSnapshot(): CameraShotSnapshot {
     return viewportCameraSnapshotRef.current;
   }
@@ -825,7 +1113,7 @@ export function DirectorCanvas() {
 
   return (
     <div className="canvas-frame">
-      <div className="director-canvas" data-testid="director-canvas">
+      <div className="director-canvas" data-testid="director-canvas" ref={viewportContainerRef}>
         <Canvas
           camera={{ position: DEFAULT_DIRECTOR_VIEW_SNAPSHOT.position, fov: DEFAULT_DIRECTOR_VIEW_SNAPSHOT.fov }}
           gl={{ antialias: true, preserveDrawingBuffer: true }}
@@ -938,26 +1226,51 @@ export function DirectorCanvas() {
         onLoadCameraSnapshot={updateDirectorViewSnapshot}
         onStartPilot={startPilotSession}
       />
-      {!isCameraPreviewing ? <ObjectMotionTransport /> : null}
-      {isCameraPreviewing && activeCameraMotionPath ? (
-        <div className="camera-preview-hud" aria-label="第一视角运镜预演控制">
-          <div className="camera-preview-hud-status">
-            <Video aria-hidden="true" size={16} />
-            <span>
-              <strong>第一视角预演</strong>
-              <small>
-                {(cameraMotionProgress * activeCameraMotionPath.duration).toFixed(1)} / {activeCameraMotionPath.duration.toFixed(1)} 秒
-              </small>
-            </span>
-          </div>
-          <button type="button" aria-label="暂停第一视角运镜预演" onClick={() => setCameraMotionPlaying(false)}>
-            <Pause aria-hidden="true" size={14} />暂停
-          </button>
-          <button type="button" aria-label="切换到导演视角路线预演" onClick={() => setViewMode("director")}>
-            <Route aria-hidden="true" size={14} />看路线
-          </button>
-        </div>
+      {motionStudioOpen && (activeCameraMotionPath?.keyframes.length ?? 0) >= 2 && !isCameraPiloting && !referenceVideoRendering ? (
+        <MotionMonitor
+          aspectRatio={finishedShotAspectRatio}
+          cameraSnapshot={activeCameraView}
+          directorSnapshot={directorViewSnapshot}
+          finishedShotFov={finishedShotFov}
+          mainViewMode={viewMode}
+          monitorFov={motionMonitorFov}
+          onFinishedShotFovChange={setFinishedShotFov}
+          onMonitorFovChange={setMotionMonitorFov}
+        />
       ) : null}
+      {activeCameraView && referenceVideoRendering ? (() => {
+        const dimensions = getReferenceVideoDimensions(
+          referenceVideoQuality,
+          finishedShotAspectRatio
+        );
+        return (
+          <div
+            className="reference-video-renderer"
+            style={{ width: `${dimensions.width}px`, height: `${dimensions.height}px` }}
+            aria-hidden="true"
+          >
+            <Canvas
+              camera={{ fov: activeCameraView.fov, position: activeCameraView.position }}
+              dpr={1}
+              gl={{ antialias: true, preserveDrawingBuffer: true }}
+              onCreated={({ gl }) => { referenceVideoCanvasRef.current = gl.domElement; }}
+            >
+              <ViewportBackground
+                backgroundColor={sceneSettings.backgroundColor}
+                backgroundBrightness={sceneSettings.backgroundBrightness}
+                panoramaAsset={null}
+                panoramaRadius={sceneSettings.panoramaRadius}
+                panoramaYaw={sceneSettings.panoramaYaw}
+              />
+              <ambientLight intensity={1.15} />
+              <directionalLight intensity={1.2} position={[8, 10, 6]} />
+              <PlaybackCameraSync fovOverride={finishedShotFov} snapshot={activeCameraView} />
+              <Suspense fallback={null}><SceneRoot renderMode="clean-camera" /></Suspense>
+            </Canvas>
+          </div>
+        );
+      })() : null}
+      <ObjectMotionTransport />
       {isCameraPiloting ? (
         <PilotHud
           lockedTargetName={lockedPilotTargetName}

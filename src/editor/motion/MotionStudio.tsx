@@ -3,6 +3,7 @@ import {
   ArrowUp,
   ChevronDown,
   ChevronUp,
+  Download,
   Gauge,
   MousePointer2,
   Move3D,
@@ -16,6 +17,7 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { requestReferenceVideoExport, type ReferenceVideoExportQuality } from "../io/referenceVideoExport";
 import { getCameraMotionPath } from "../schema/cameraMotion";
 import {
   getAnimatedCameraFocusTarget,
@@ -77,16 +79,35 @@ export function MotionStudio({
   const moveCameraMotionKeyframe = useDirectorStore((state) => state.moveCameraMotionKeyframe);
   const insertCameraMotionKeyframeAfter = useDirectorStore((state) => state.insertCameraMotionKeyframeAfter);
   const setCameraPilotFollowTarget = useDirectorStore((state) => state.setCameraPilotFollowTarget);
+  const beginUndoBatch = useDirectorStore((state) => state.beginUndoBatch);
+  const endUndoBatch = useDirectorStore((state) => state.endUndoBatch);
   const [batchSelectionEnabled, setBatchSelectionEnabled] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exportFps, setExportFps] = useState(30);
+  const [exportQuality, setExportQuality] = useState<ReferenceVideoExportQuality>("720p");
+  const [exporting, setExporting] = useState(false);
+  const [exportStatus, setExportStatus] = useState<string | null>(null);
+  const [arrivalTimeDraft, setArrivalTimeDraft] = useState("");
 
   useEffect(() => {
     if (!open) return;
     ensureMotionCamera(getViewportCameraSnapshot());
   }, [ensureMotionCamera, open]);
 
+  const activeMotionPath = activeCamera ? getCameraMotionPath(activeCamera) : null;
+  const activeSelectedKeyframe = activeMotionPath?.keyframes.find((item) => item.id === selectedCameraKeyframeId) ?? null;
+
+  useEffect(() => {
+    setArrivalTimeDraft(
+      activeSelectedKeyframe && activeMotionPath
+        ? (activeSelectedKeyframe.time * activeMotionPath.duration).toFixed(1)
+        : ""
+    );
+  }, [activeMotionPath?.duration, activeSelectedKeyframe?.id, activeSelectedKeyframe?.time]);
+
   if (!open || !activeCamera) return null;
 
-  const motionPath = getCameraMotionPath(activeCamera);
+  const motionPath = activeMotionPath!;
   const trackableObjects = sceneObjects.filter(isCameraFocusableObject);
   const canPlay = motionPath.keyframes.length >= 2 || sceneObjects.some((item) => (item.motionPath?.keyframes?.length ?? 0) >= 2);
   const selectedKeyframe = motionPath.keyframes.find((item) => item.id === selectedCameraKeyframeId) ?? null;
@@ -187,6 +208,46 @@ export function MotionStudio({
     setCameraMotionPlaying(true);
   }
 
+  function updateSelectedArrivalTime(seconds: number) {
+    if (!selectedKeyframe) return;
+    const index = motionPath.keyframes.indexOf(selectedKeyframe);
+    if (index <= 0 || index >= motionPath.keyframes.length - 1) return;
+    const previous = motionPath.keyframes[index - 1];
+    const next = motionPath.keyframes[index + 1];
+    const minimum = previous.time * motionPath.duration + 0.1;
+    const maximum = next.time * motionPath.duration - 0.1;
+    const clamped = Math.min(maximum, Math.max(minimum, seconds));
+    updateCameraMotionKeyframe(activeCamera.id, selectedKeyframe.id, {
+      time: clamped / motionPath.duration,
+    });
+    setCameraMotionProgress(clamped / motionPath.duration);
+    setArrivalTimeDraft(clamped.toFixed(1));
+  }
+
+  function commitArrivalTimeDraft() {
+    const seconds = Number(arrivalTimeDraft);
+    if (Number.isFinite(seconds)) updateSelectedArrivalTime(seconds);
+    else if (selectedKeyframe) setArrivalTimeDraft((selectedKeyframe.time * motionPath.duration).toFixed(1));
+  }
+
+  async function exportReferenceVideo() {
+    if (motionPath.keyframes.length < 2 || exporting) return;
+    setExporting(true);
+    setExportStatus("正在录制参考视频...");
+    try {
+      await requestReferenceVideoExport({
+        fileName: `${activeCamera.name || "运镜"}-参考视频.webm`,
+        fps: exportFps,
+        quality: exportQuality,
+      });
+      setExportStatus("参考视频已下载");
+    } catch (error) {
+      setExportStatus(error instanceof Error ? error.message : "参考视频导出失败");
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <section className={`motion-studio${cameraPilotMode !== "idle" ? " is-piloting" : ""}`} aria-label="运镜工作台">
       <header className="motion-studio-header">
@@ -197,10 +258,25 @@ export function MotionStudio({
             <p>侧边栏不挡画面 · 无需摆放机位</p>
           </div>
         </div>
-        <button type="button" className="motion-studio-close" aria-label="关闭运镜工作台" onClick={() => setMotionStudioOpen(false)}>
-          <X aria-hidden="true" size={16} />
-        </button>
+        <div className="motion-studio-header-actions">
+          <button type="button" className="motion-studio-export" aria-label="导出运镜" aria-expanded={exportOpen} onClick={() => setExportOpen((current) => !current)}>
+            <Download aria-hidden="true" size={14} />导出
+          </button>
+          <button type="button" className="motion-studio-close" aria-label="关闭运镜工作台" onClick={() => setMotionStudioOpen(false)}>
+            <X aria-hidden="true" size={16} />
+          </button>
+        </div>
       </header>
+
+      {exportOpen ? (
+        <section className="motion-export-panel" aria-label="导出运镜设置">
+          <div><strong>导出参考视频</strong><small>导出干净的第一视角运镜，不包含轨迹线和操作界面</small></div>
+          <label><span>画质</span><select aria-label="参考视频画质" value={exportQuality} onChange={(event) => setExportQuality(event.currentTarget.value as ReferenceVideoExportQuality)}><option value="720p">720p</option><option value="1080p">1080p</option></select></label>
+          <label><span>帧率</span><select aria-label="参考视频帧率" value={exportFps} onChange={(event) => setExportFps(Number(event.currentTarget.value))}><option value="24">24 FPS</option><option value="30">30 FPS</option><option value="60">60 FPS</option></select></label>
+          <button type="button" className="motion-export-confirm" disabled={motionPath.keyframes.length < 2 || exporting} onClick={() => void exportReferenceVideo()}><Download aria-hidden="true" size={14} />{exporting ? "正在录制" : "导出 WebM"}</button>
+          {exportStatus ? <output className="motion-export-status" role="status">{exportStatus}</output> : null}
+        </section>
+      ) : null}
 
       <section className="motion-preview-panel" aria-label="运镜预览方式">
         <div className="motion-block-heading">
@@ -357,6 +433,24 @@ export function MotionStudio({
           {selectedKeyframe && !batchSelectionEnabled ? (
             <div className="motion-selected-actions" aria-label="当前轨迹点操作">
               <span>轨迹点 {motionPath.keyframes.indexOf(selectedKeyframe) + 1}</span>
+              {motionPath.keyframes.indexOf(selectedKeyframe) > 0 && motionPath.keyframes.indexOf(selectedKeyframe) < motionPath.keyframes.length - 1 ? (
+                <label className="motion-waypoint-arrival">
+                  到达
+                  <input
+                    aria-label="当前轨迹点到达时间"
+                    type="number"
+                    min={(motionPath.keyframes[motionPath.keyframes.indexOf(selectedKeyframe) - 1].time * motionPath.duration + 0.1).toFixed(1)}
+                    max={(motionPath.keyframes[motionPath.keyframes.indexOf(selectedKeyframe) + 1].time * motionPath.duration - 0.1).toFixed(1)}
+                    step="0.1"
+                    value={arrivalTimeDraft}
+                    onChange={(event) => setArrivalTimeDraft(event.currentTarget.value)}
+                    onBlur={commitArrivalTimeDraft}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") event.currentTarget.blur();
+                    }}
+                  />秒
+                </label>
+              ) : null}
               <button type="button" onClick={editSelectedWaypoint}><MousePointer2 aria-hidden="true" size={13} />进入此点调整</button>
               <button
                 type="button"
@@ -415,6 +509,10 @@ export function MotionStudio({
               max="30"
               step="0.5"
               value={motionPath.duration}
+              onPointerDown={beginUndoBatch}
+              onPointerUp={endUndoBatch}
+              onPointerCancel={endUndoBatch}
+              onBlur={endUndoBatch}
               onChange={(event) => updateCameraMotionPath(activeCamera.id, { duration: Number(event.currentTarget.value) })}
             />
             <output>{motionPath.duration.toFixed(1)}s</output>

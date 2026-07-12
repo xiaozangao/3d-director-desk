@@ -38,6 +38,10 @@ it("returns to a real home page that lists director desks 1 through 4", async ()
     expect(screen.getByText(`导演台 ${number} 号`)).toBeInTheDocument();
   }
   expect(window.location.search).not.toContain("instanceId");
+  expect(screen.getByRole("heading", { name: "四步完成第一条运镜" })).toBeInTheDocument();
+  expect(screen.getByText("掌镜快捷键")).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "路线编辑、监看与导出升级" })).toBeInTheDocument();
+  expect(screen.getByText("主成片 FOV 与监看小窗 FOV 已分开设置，导出使用主成片 FOV")).toBeInTheDocument();
 });
 
 it("keeps the selected director desk in the URL so refresh opens the same desk", async () => {
@@ -169,4 +173,18 @@ it("supports Cmd/Ctrl+Z to undo the latest scene edit", async () => {
   await user.keyboard("{Control>}z{/Control}");
 
   expect(useDirectorStore.getState().project.objects.some((item) => item.name === "角色02")).toBe(false);
+});
+
+it("ignores repeated Cmd/Ctrl+Z keydown events so holding the shortcut only undoes once", () => {
+  render(<App />);
+  act(() => {
+    useDirectorStore.getState().addPresetCharacter("female");
+    useDirectorStore.getState().addPresetCharacter("broad");
+  });
+
+  window.dispatchEvent(new KeyboardEvent("keydown", { key: "z", ctrlKey: true, repeat: false }));
+  window.dispatchEvent(new KeyboardEvent("keydown", { key: "z", ctrlKey: true, repeat: true }));
+
+  const characters = useDirectorStore.getState().project.objects.filter((item) => item.kind === "character");
+  expect(characters).toHaveLength(2);
 });

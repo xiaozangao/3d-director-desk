@@ -29,7 +29,7 @@ it("lays scene switches out in one row and only toggles from the checkbox", asyn
   const checkbox = screen.getByLabelText("角色标签");
 
   expect(switchRow).toBeInTheDocument();
-  expect(switchRow?.querySelectorAll(".inspector-toggle-row")).toHaveLength(3);
+  expect(switchRow?.querySelectorAll(".inspector-toggle-row")).toHaveLength(4);
   expect(checkbox).toBeChecked();
 
   await user.click(labelText);
@@ -55,6 +55,7 @@ it("updates scene transform, background, switches, and ground controls", async (
   await user.type(screen.getByLabelText("天空颜色 HEX"), "#123456");
   await user.click(screen.getByLabelText("角色标签"));
   await user.click(screen.getByLabelText("网格吸附"));
+  await user.click(screen.getByLabelText("路径碰撞"));
   await user.clear(screen.getByLabelText("地面透明度"));
   await user.type(screen.getByLabelText("地面透明度"), "0.65");
   await user.clear(screen.getByLabelText("地面高度"));
@@ -67,6 +68,7 @@ it("updates scene transform, background, switches, and ground controls", async (
   expect(scene.backgroundColor).toBe("#123456");
   expect(scene.showLabels).toBe(false);
   expect(scene.snapToGrid).toBe(true);
+  expect(scene.pathCollisionEnabled).toBe(true);
   expect(scene.groundOpacity).toBe(0.65);
   expect(scene.groundHeight).toBe(1.2);
 });
