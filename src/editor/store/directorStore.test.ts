@@ -207,6 +207,29 @@ it("updates an object keyframe when recording again at the same time", () => {
   expect(keyframes?.[0].transform.position).toEqual([2, 0, 1]);
 });
 
+it("inserts and edits a character route point", () => {
+  useDirectorStore.setState(createInitialDirectorState());
+  const characterId = "char_default_a";
+  const startId = useDirectorStore.getState().addObjectMotionKeyframe(characterId, 0)!;
+  useDirectorStore.getState().updateObjectTransform(characterId, { position: [6, 0, 0] });
+  useDirectorStore.getState().addObjectMotionKeyframe(characterId, 1);
+
+  const insertedId = useDirectorStore.getState().insertObjectMotionKeyframeAfter(characterId, startId)!;
+  useDirectorStore.getState().updateObjectMotionKeyframe(characterId, insertedId, {
+    actionPresetId: "run-cycle",
+    facingMode: "manual",
+    transform: { position: [2, 0, 1] },
+  });
+
+  const keyframes = useDirectorStore.getState().project.objects.find((item) => item.id === characterId)?.motionPath?.keyframes;
+  expect(keyframes).toMatchObject([
+    { id: startId, time: 0, facingMode: "path" },
+    { id: insertedId, time: .5, actionPresetId: "run-cycle", facingMode: "manual", transform: { position: [2, 0, 1] } },
+    { time: 1 },
+  ]);
+  expect(useDirectorStore.getState().selectedObjectMotionKeyframeId).toBe(insertedId);
+});
+
 it("updates the viewport aspect ratio selection in ui state", () => {
   useDirectorStore.setState(createInitialDirectorState());
 

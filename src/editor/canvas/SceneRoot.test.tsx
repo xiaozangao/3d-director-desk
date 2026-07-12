@@ -642,6 +642,24 @@ it("renders an editable camera motion path for the selected viewport camera", ()
   expect(container.querySelector('mesh[name="cam_1_motion_key_2-motion-handle"]')).toBeInTheDocument();
 });
 
+it("renders and selects editable character route points", () => {
+  useDirectorStore.getState().selectObject("char_default_a");
+  useDirectorStore.getState().addObjectMotionKeyframe("char_default_a", 0);
+  useDirectorStore.getState().updateObjectTransform("char_default_a", { position: [3, 0, 1] });
+  useDirectorStore.getState().addObjectMotionKeyframe("char_default_a", 1);
+
+  const { container } = render(<SceneRoot />);
+  const routeLine = screen.getAllByTestId("camera-line").find((line) => line.dataset.color === "#4ADE80");
+
+  expect(routeLine).toHaveAttribute("data-point-count", "2");
+  expect(container.querySelector('mesh[name="char_default_a_motion_key_1-character-route-handle"]')).toBeInTheDocument();
+  expect(container.querySelector('mesh[name="char_default_a_motion_key_2-character-route-handle"]')).toBeInTheDocument();
+
+  fireEvent.click(container.querySelector('mesh[name="char_default_a_motion_key_2-character-route-handle"]')!);
+  expect(useDirectorStore.getState().selectedObjectMotionKeyframeId).toBe("char_default_a_motion_key_2");
+  expect(useDirectorStore.getState().cameraMotionProgress).toBe(1);
+});
+
 it("uses one translate gizmo for the selected motion point instead of overlapping the camera gizmo", () => {
   useDirectorStore.getState().selectObject("cam_object_1");
   const firstKeyframeId = useDirectorStore.getState().addCameraMotionKeyframe("cam_1");

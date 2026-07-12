@@ -34,7 +34,7 @@ import {
   getCameraRigPositionFromViewSnapshot,
 } from "../schema/cameraGeometry";
 import type { ViewportAspectRatio } from "../schema/viewportAspectRatio";
-import { normalizeObjectMotionPath } from "../schema/objectMotion";
+import { getObjectMotionSnapshot, normalizeObjectMotionPath } from "../schema/objectMotion";
 import {
   DEFAULT_VIEWPORT_ROTATE_SENSITIVITY,
   DEFAULT_VIEWPORT_ZOOM_SENSITIVITY,
@@ -106,6 +106,7 @@ interface DirectorInternalState {
   undoBatchHasTrackedChanges: boolean;
   selectedCameraKeyframeId: string | null;
   selectedCameraKeyframeIds: string[];
+  selectedObjectMotionKeyframeId: string | null;
   cameraMotionProgress: number;
   cameraMotionPlaying: boolean;
   cameraPilotMode: CameraPilotMode;
@@ -134,6 +135,13 @@ export interface DirectorActions {
   removeImportedAsset: (assetId: string) => void;
   updateObjectTransform: (id: string, patch: Partial<DirectorTransform>) => void;
   addObjectMotionKeyframe: (objectId: string, time: number) => string | null;
+  insertObjectMotionKeyframeAfter: (objectId: string, keyframeId: string) => string | null;
+  selectObjectMotionKeyframe: (keyframeId: string | null) => void;
+  updateObjectMotionKeyframe: (
+    objectId: string,
+    keyframeId: string,
+    patch: Omit<Partial<DirectorObjectMotionKeyframe>, "transform"> & { transform?: Partial<DirectorTransform> }
+  ) => void;
   deleteObjectMotionKeyframe: (objectId: string, keyframeId: string) => void;
   updateCrowdTransform: (crowdId: string, patch: Partial<DirectorTransform>) => void;
   updateObjectName: (id: string, name: string) => void;
@@ -572,6 +580,7 @@ function createRuntimeStateFromPersistedState(state: DirectorState): DirectorRun
     undoBatchHasTrackedChanges: false,
     selectedCameraKeyframeId: null,
     selectedCameraKeyframeIds: [],
+    selectedObjectMotionKeyframeId: null,
     cameraMotionProgress: 0,
     cameraMotionPlaying: false,
     motionStudioOpen: false,
@@ -1351,6 +1360,7 @@ export const useDirectorStore = create<DirectorStore>((set, get) => {
           directorInspectorMode: "auto",
           selectedCameraKeyframeId: selectedObject?.kind === "camera" ? null : state.selectedCameraKeyframeId,
           selectedCameraKeyframeIds: selectedObject?.kind === "camera" ? [] : state.selectedCameraKeyframeIds,
+          selectedObjectMotionKeyframeId: null,
           cameraMotionProgress: selectedObject?.kind === "camera" ? 0 : state.cameraMotionProgress,
           cameraMotionPlaying: false,
           project: {
@@ -1544,6 +1554,8 @@ export const useDirectorStore = create<DirectorStore>((set, get) => {
           id: recordedId,
           time: normalizedTime,
           transform,
+          actionPresetId: existing?.actionPresetId ?? object.characterRig?.actionPresetId ?? null,
+          facingMode: existing?.facingMode ?? (object.kind === "character" ? "path" : "manual"),
         };
         const keyframes = existing
           ? motionPath.keyframes.map((item) => item.id === existing.id ? keyframe : item)
@@ -1561,9 +1573,90 @@ export const useDirectorStore = create<DirectorStore>((set, get) => {
       });
       return recordedId;
     },
+    insertObjectMotionKeyframeAfter: (objectId, keyframeId) => {
+      let insertedId: string | null = null;
+      commitMutation((state) => {
+        const object = state.project.objects.find((item) => item.id === objectId);
+        if (!object) return state;
+        const motionPath = normalizeObjectMotionPath(object.motionPath, object.transform);
+        const currentIndex = motionPath.keyframes.findIndex((item) => item.id === keyframeId);
+        const current = motionPath.keyframes[currentIndex];
+        const next = motionPath.keyframes[currentIndex + 1];
+        if (!current || !next) return state;
+        insertedId = getNextSequentialId(
+          motionPath.keyframes.map((item) => item.id),
+          `${objectId}_motion_key_`,
+          motionPath.keyframes.length + 1
+        );
+        const time = (current.time + next.time) / 2;
+        const transform = getObjectMotionSnapshot(object, time);
+        const inserted: DirectorObjectMotionKeyframe = {
+          id: insertedId,
+          time,
+          transform,
+          actionPresetId: current.actionPresetId ?? null,
+          facingMode: current.facingMode ?? "manual",
+        };
+        return {
+          ...state,
+          selectedObjectMotionKeyframeId: insertedId,
+          project: {
+            ...state.project,
+            objects: state.project.objects.map((item) =>
+              item.id === objectId
+                ? { ...item, motionPath: { ...motionPath, keyframes: [...motionPath.keyframes, inserted].sort((a, b) => a.time - b.time) } }
+                : item
+            ),
+          },
+        };
+      });
+      return insertedId;
+    },
+    selectObjectMotionKeyframe: (keyframeId) =>
+      commitUiMutation((state) => ({ ...state, selectedObjectMotionKeyframeId: keyframeId })),
+    updateObjectMotionKeyframe: (objectId, keyframeId, patch) =>
+      commitMutation((state) => ({
+        ...state,
+        project: {
+          ...state.project,
+          objects: state.project.objects.map((object) => {
+            if (object.id !== objectId) return object;
+            const motionPath = normalizeObjectMotionPath(object.motionPath, object.transform);
+            const keyframes = motionPath.keyframes
+              .map((keyframe) =>
+                keyframe.id === keyframeId
+                  ? {
+                      ...keyframe,
+                      actionPresetId:
+                        "actionPresetId" in patch ? patch.actionPresetId ?? null : keyframe.actionPresetId,
+                      facingMode: "facingMode" in patch ? patch.facingMode ?? "manual" : keyframe.facingMode,
+                      time: typeof patch.time === "number" ? Math.min(1, Math.max(0, patch.time)) : keyframe.time,
+                      transform: patch.transform
+                        ? {
+                            position: patch.transform.position ?? keyframe.transform.position,
+                            rotation: patch.transform.rotation ?? keyframe.transform.rotation,
+                            scale: patch.transform.scale ?? keyframe.transform.scale,
+                          }
+                        : keyframe.transform,
+                    }
+                  : keyframe
+              )
+              .sort((left, right) => left.time - right.time);
+            return {
+              ...object,
+              motionPath: {
+                ...motionPath,
+                keyframes,
+              },
+            };
+          }),
+        },
+      })),
     deleteObjectMotionKeyframe: (objectId, keyframeId) =>
       commitMutation((state) => ({
         ...state,
+        selectedObjectMotionKeyframeId:
+          state.selectedObjectMotionKeyframeId === keyframeId ? null : state.selectedObjectMotionKeyframeId,
         project: {
           ...state.project,
           objects: state.project.objects.map((object) => {

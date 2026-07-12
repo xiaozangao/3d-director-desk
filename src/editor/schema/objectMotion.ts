@@ -60,6 +60,8 @@ export function normalizeObjectMotionPath(
             id: typeof keyframe.id === "string" && keyframe.id ? keyframe.id : `object_motion_${index + 1}`,
             time: clamp(finite(keyframe.time, index)),
             transform: normalizeTransform(keyframe.transform, fallbackTransform),
+            actionPresetId: typeof keyframe.actionPresetId === "string" ? keyframe.actionPresetId : null,
+            facingMode: keyframe.facingMode === "path" ? "path" : "manual",
           };
         })
         .filter((entry): entry is DirectorObjectMotionKeyframe => Boolean(entry))
@@ -97,7 +99,16 @@ export function getObjectMotionSnapshot(object: DirectorObject, progress: number
   const p = clamp(progress);
   const first = path.keyframes[0];
   const last = path.keyframes[path.keyframes.length - 1];
-  if (p <= first.time) return cloneTransform(first.transform);
+  if (p <= first.time) {
+    const transform = cloneTransform(first.transform);
+    const next = path.keyframes[1];
+    if (object.kind === "character" && first.facingMode === "path" && next) {
+      const dx = next.transform.position[0] - first.transform.position[0];
+      const dz = next.transform.position[2] - first.transform.position[2];
+      if (Math.hypot(dx, dz) > 0.0001) transform.rotation[1] = Math.atan2(dx, dz);
+    }
+    return transform;
+  }
   if (p >= last.time) return cloneTransform(last.transform);
 
   let segment = 0;
@@ -114,11 +125,29 @@ export function getObjectMotionSnapshot(object: DirectorObject, progress: number
     angle ? interpolateAngle(value, right[axis], local) : interpolate(value, right[axis], local)
   ) as [number, number, number];
 
+  const rotation = mapTuple(from.transform.rotation, to.transform.rotation, true);
+  if (object.kind === "character" && from.facingMode === "path") {
+    const dx = to.transform.position[0] - from.transform.position[0];
+    const dz = to.transform.position[2] - from.transform.position[2];
+    if (Math.hypot(dx, dz) > 0.0001) {
+      rotation[1] = Math.atan2(dx, dz);
+    }
+  }
+
   return {
     position: mapTuple(from.transform.position, to.transform.position),
-    rotation: mapTuple(from.transform.rotation, to.transform.rotation, true),
+    rotation,
     scale: mapTuple(from.transform.scale, to.transform.scale),
   };
+}
+
+export function getObjectMotionActionPresetId(object: DirectorObject, progress: number) {
+  const path = normalizeObjectMotionPath(object.motionPath, object.transform);
+  if (path.keyframes.length === 0) return object.characterRig?.actionPresetId ?? null;
+  const p = clamp(progress);
+  let index = 0;
+  while (index < path.keyframes.length - 2 && p >= path.keyframes[index + 1].time) index += 1;
+  return path.keyframes[index]?.actionPresetId ?? null;
 }
 
 export function getObjectMotionSpeed(object: DirectorObject, progress: number) {

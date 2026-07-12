@@ -171,3 +171,19 @@ it("selects and starts a character action preset", async () => {
   expect(state.cameraMotionPlaying).toBe(true);
   expect(state.cameraMotionProgress).toBe(0);
 });
+
+it("adds and edits a route point from the character route tab", async () => {
+  const user = userEvent.setup();
+  render(<CharacterPanel />);
+
+  await user.click(screen.getByRole("button", { name: "路线" }));
+  await user.click(screen.getByRole("button", { name: "添加路线点" }));
+
+  expect(screen.getByRole("button", { name: "选择路线点 1" })).toHaveAttribute("aria-pressed", "true");
+  await user.selectOptions(screen.getByLabelText("路线点本段动作"), "run-cycle");
+  await user.selectOptions(screen.getByLabelText("路线点朝向方式"), "path");
+
+  const point = useDirectorStore.getState().project.objects.find((item) => item.id === "char_default_a")?.motionPath?.keyframes[0];
+  expect(point?.actionPresetId).toBe("run-cycle");
+  expect(point?.facingMode).toBe("path");
+});

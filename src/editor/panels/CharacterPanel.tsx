@@ -9,6 +9,8 @@ import {
 } from "./InspectorControls";
 import { MANNEQUIN_POSE_PRESETS } from "../presets/mannequinPosePresets";
 import { CHARACTER_ACTION_PRESETS } from "../presets/characterActionPresets";
+import { getCameraMotionPath } from "../schema/cameraMotion";
+import { normalizeObjectMotionPath } from "../schema/objectMotion";
 import { getCrowdAnchorTransform, useDirectorStore } from "../store/directorStore";
 
 function replaceAxis(tuple: [number, number, number], axis: 0 | 1 | 2, value: number): [number, number, number] {
@@ -16,10 +18,13 @@ function replaceAxis(tuple: [number, number, number], axis: 0 | 1 | 2, value: nu
 }
 
 export function CharacterPanel() {
-  const [activeTab, setActiveTab] = useState<"properties" | "pose" | "action">("properties");
+  const [activeTab, setActiveTab] = useState<"properties" | "pose" | "action" | "route">("properties");
   const selectedCrowdId = useDirectorStore((state) => state.selectedCrowdId);
   const selectedObjectId = useDirectorStore((state) => state.selectedObjectId);
   const objects = useDirectorStore((state) => state.project.objects);
+  const cameras = useDirectorStore((state) => state.project.cameras);
+  const activeCameraId = useDirectorStore((state) => state.project.activeCameraId);
+  const cameraMotionProgress = useDirectorStore((state) => state.cameraMotionProgress);
   const updateObjectName = useDirectorStore((state) => state.updateObjectName);
   const updateCrowdLabel = useDirectorStore((state) => state.updateCrowdLabel);
   const updateObjectTransform = useDirectorStore((state) => state.updateObjectTransform);
@@ -36,6 +41,12 @@ export function CharacterPanel() {
   const applyCrowdActionPreset = useDirectorStore((state) => state.applyCrowdActionPreset);
   const setCameraMotionProgress = useDirectorStore((state) => state.setCameraMotionProgress);
   const setCameraMotionPlaying = useDirectorStore((state) => state.setCameraMotionPlaying);
+  const addObjectMotionKeyframe = useDirectorStore((state) => state.addObjectMotionKeyframe);
+  const insertObjectMotionKeyframeAfter = useDirectorStore((state) => state.insertObjectMotionKeyframeAfter);
+  const deleteObjectMotionKeyframe = useDirectorStore((state) => state.deleteObjectMotionKeyframe);
+  const selectedObjectMotionKeyframeId = useDirectorStore((state) => state.selectedObjectMotionKeyframeId);
+  const selectObjectMotionKeyframe = useDirectorStore((state) => state.selectObjectMotionKeyframe);
+  const updateObjectMotionKeyframe = useDirectorStore((state) => state.updateObjectMotionKeyframe);
 
   const selection = useMemo(() => {
     const role = objects.find((item) => item.id === selectedObjectId && item.kind === "character");
@@ -76,6 +87,10 @@ export function CharacterPanel() {
   const roleColor = selection.color;
   const transform = selection.crowdAnchor;
   const isCrowd = selection.mode === "crowd";
+  const routePath = normalizeObjectMotionPath(role.motionPath, role.transform);
+  const selectedRoutePoint = routePath.keyframes.find((item) => item.id === selectedObjectMotionKeyframeId) ?? null;
+  const activeCamera = cameras.find((item) => item.id === activeCameraId) ?? cameras[0];
+  const timelineDuration = activeCamera ? getCameraMotionPath(activeCamera).duration : 6;
   const poseGroups = [
     {
       title: "身体",
@@ -160,6 +175,7 @@ export function CharacterPanel() {
         { label: "属性", active: activeTab === "properties", onClick: () => setActiveTab("properties") },
         { label: "姿势", active: activeTab === "pose", onClick: () => setActiveTab("pose") },
         { label: "动作", active: activeTab === "action", onClick: () => setActiveTab("action") },
+        { label: "路线", active: activeTab === "route", onClick: () => setActiveTab("route") },
       ]}
     >
       {activeTab === "properties" ? (
@@ -390,7 +406,7 @@ export function CharacterPanel() {
             <p>该模型未识别到标准 humanoid 骨骼，暂不支持姿势编辑。</p>
           )}
         </InspectorSection>
-      ) : (
+      ) : activeTab === "action" ? (
         <InspectorSection title="动作预设" className="pose-preset-section">
           <div className="preset-grid">
             <button
@@ -422,6 +438,140 @@ export function CharacterPanel() {
               </button>
             ))}
           </div>
+        </InspectorSection>
+      ) : (
+        <InspectorSection title="人物路线" className="pose-preset-section">
+          {isCrowd ? (
+            <p>群众组暂不支持共用路线。请先选中单个人物。</p>
+          ) : (
+            <>
+              <div className="preset-grid">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCameraMotionPlaying(false);
+                    const id = addObjectMotionKeyframe(role.id, cameraMotionProgress);
+                    if (id) selectObjectMotionKeyframe(id);
+                  }}
+                >
+                  添加路线点
+                </button>
+                <button
+                  type="button"
+                  disabled={!selectedRoutePoint || routePath.keyframes[routePath.keyframes.length - 1]?.id === selectedRoutePoint.id}
+                  onClick={() => {
+                    if (!selectedRoutePoint) return;
+                    const id = insertObjectMotionKeyframeAfter(role.id, selectedRoutePoint.id);
+                    if (id) selectObjectMotionKeyframe(id);
+                  }}
+                >
+                  在后插入点
+                </button>
+                <button
+                  type="button"
+                  disabled={!selectedRoutePoint}
+                  onClick={() => {
+                    if (!selectedRoutePoint) return;
+                    deleteObjectMotionKeyframe(role.id, selectedRoutePoint.id);
+                    selectObjectMotionKeyframe(null);
+                  }}
+                >
+                  删除路线点
+                </button>
+              </div>
+              <div className="preset-grid" role="group" aria-label="人物路线点列表">
+                {routePath.keyframes.map((point, index) => (
+                  <button
+                    key={point.id}
+                    className={point.id === selectedRoutePoint?.id ? "is-active" : undefined}
+                    type="button"
+                    aria-label={`选择路线点 ${index + 1}`}
+                    aria-pressed={point.id === selectedRoutePoint?.id}
+                    onClick={() => {
+                      selectObjectMotionKeyframe(point.id);
+                      setCameraMotionProgress(point.time);
+                    }}
+                  >
+                    {index + 1}
+                    <small>{(point.time * timelineDuration).toFixed(1)} 秒</small>
+                  </button>
+                ))}
+              </div>
+              {selectedRoutePoint ? (
+                <InspectorSection title={`路线点 ${routePath.keyframes.findIndex((point) => point.id === selectedRoutePoint.id) + 1}`} className="pose-adjust-section">
+                  <InspectorRangeNumberField
+                    label="到达时间"
+                    rangeAriaLabel="路线点到达时间滑杆"
+                    numberAriaLabel="路线点到达时间"
+                    min="0"
+                    max={String(timelineDuration)}
+                    step="0.1"
+                    value={selectedRoutePoint.time * timelineDuration}
+                    onValueChange={(value) => updateObjectMotionKeyframe(role.id, selectedRoutePoint.id, {
+                      time: Math.min(1, Math.max(0, Number(value) / timelineDuration)),
+                    })}
+                  />
+                  <InspectorAxisGroup
+                    label="路线点位置"
+                    axes={([0, 1, 2] as const).map((axis) => ({
+                      axis: (["X", "Y", "Z"] as const)[axis],
+                      ariaLabel: `路线点位置 ${(["X", "Y", "Z"] as const)[axis]}`,
+                      value: selectedRoutePoint.transform.position[axis],
+                      onChange: (value: string) => updateObjectMotionKeyframe(role.id, selectedRoutePoint.id, {
+                        transform: { position: replaceAxis(selectedRoutePoint.transform.position, axis, Number(value)) },
+                      }),
+                    }))}
+                  />
+                  <label className="inspector-field">
+                    <span className="inspector-field-label">本段动作</span>
+                    <select
+                      aria-label="路线点本段动作"
+                      value={selectedRoutePoint.actionPresetId ?? ""}
+                      onChange={(event) => updateObjectMotionKeyframe(role.id, selectedRoutePoint.id, {
+                        actionPresetId: event.currentTarget.value || null,
+                      })}
+                    >
+                      <option value="">自动行走</option>
+                      {CHARACTER_ACTION_PRESETS.map((preset) => <option key={preset.id} value={preset.id}>{preset.label}</option>)}
+                    </select>
+                  </label>
+                  <label className="inspector-field">
+                    <span className="inspector-field-label">到点朝向</span>
+                    <select
+                      aria-label="路线点朝向方式"
+                      value={selectedRoutePoint.facingMode ?? "manual"}
+                      onChange={(event) => updateObjectMotionKeyframe(role.id, selectedRoutePoint.id, {
+                        facingMode: event.currentTarget.value === "path" ? "path" : "manual",
+                      })}
+                    >
+                      <option value="path">面向下一个点</option>
+                      <option value="manual">手动朝向</option>
+                    </select>
+                  </label>
+                  {selectedRoutePoint.facingMode !== "path" ? (
+                    <InspectorRangeNumberField
+                      label="手动朝向"
+                      rangeAriaLabel="路线点手动朝向滑杆"
+                      numberAriaLabel="路线点手动朝向"
+                      min="-180"
+                      max="180"
+                      step="1"
+                      value={selectedRoutePoint.transform.rotation[1] * 180 / Math.PI}
+                      onValueChange={(value) => updateObjectMotionKeyframe(role.id, selectedRoutePoint.id, {
+                        transform: {
+                          rotation: replaceAxis(
+                            selectedRoutePoint.transform.rotation,
+                            1,
+                            Number(value) * Math.PI / 180
+                          ),
+                        },
+                      })}
+                    />
+                  ) : null}
+                </InspectorSection>
+              ) : <p>添加第一个路线点后，可在场景里拖动编号点继续摆路线。</p>}
+            </>
+          )}
         </InspectorSection>
       )}
     </InspectorPanel>

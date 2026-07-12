@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DirectorObject } from "./directorProject";
-import { getObjectMotionSnapshot, normalizeObjectMotionPath } from "./objectMotion";
+import { getObjectMotionActionPresetId, getObjectMotionSnapshot, normalizeObjectMotionPath } from "./objectMotion";
 
 function movingObject(): DirectorObject {
   return {
@@ -39,5 +39,23 @@ describe("object motion path", () => {
   it("preserves exact first and last object transforms", () => {
     expect(getObjectMotionSnapshot(movingObject(), 0).position).toEqual([0, 0, 0]);
     expect(getObjectMotionSnapshot(movingObject(), 1).position).toEqual([10, 2, -4]);
+  });
+
+  it("faces a character toward the next route point and uses that point action", () => {
+    const character = {
+      ...movingObject(),
+      kind: "character" as const,
+      characterRig: { rigType: "ue4-mannequin" as const, posePresetId: "stand", controls: {} },
+      motionPath: {
+        interpolation: "linear" as const,
+        keyframes: [
+          { id: "route_1", time: 0, facingMode: "path" as const, actionPresetId: "walk-cycle", transform: { position: [0, 0, 0] as [number, number, number], rotation: [0, 0, 0] as [number, number, number], scale: [1, 1, 1] as [number, number, number] } },
+          { id: "route_2", time: 1, transform: { position: [4, 0, 0] as [number, number, number], rotation: [0, 0, 0] as [number, number, number], scale: [1, 1, 1] as [number, number, number] } },
+        ],
+      },
+    };
+
+    expect(getObjectMotionSnapshot(character, .5).rotation[1]).toBeCloseTo(Math.PI / 2);
+    expect(getObjectMotionActionPresetId(character, .5)).toBe("walk-cycle");
   });
 });

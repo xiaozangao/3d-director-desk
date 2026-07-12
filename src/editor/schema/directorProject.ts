@@ -87,6 +87,10 @@ export interface DirectorObjectMotionKeyframe {
   id: string;
   time: number;
   transform: DirectorTransform;
+  /** Character action played from this route point until the next point. */
+  actionPresetId?: string | null;
+  /** Path-facing turns toward the next route point; manual keeps the point rotation. */
+  facingMode?: "path" | "manual";
 }
 
 export interface DirectorObjectMotionPath {

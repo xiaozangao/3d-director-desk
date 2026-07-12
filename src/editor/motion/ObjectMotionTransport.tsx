@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { DEFAULT_CAMERA_MOTION_PATH, getCameraMotionPath } from "../schema/cameraMotion";
 import { normalizeObjectMotionPath } from "../schema/objectMotion";
+import { CHARACTER_ACTION_PRESETS } from "../presets/characterActionPresets";
 import { useDirectorStore } from "../store/directorStore";
 import "./objectMotionTransport.css";
 
@@ -36,7 +37,10 @@ export function ObjectMotionTransport() {
       ?? state.project.cameras[0]
   );
   const addObjectMotionKeyframe = useDirectorStore((state) => state.addObjectMotionKeyframe);
+  const insertObjectMotionKeyframeAfter = useDirectorStore((state) => state.insertObjectMotionKeyframeAfter);
   const deleteObjectMotionKeyframe = useDirectorStore((state) => state.deleteObjectMotionKeyframe);
+  const selectObjectMotionKeyframe = useDirectorStore((state) => state.selectObjectMotionKeyframe);
+  const updateObjectMotionKeyframe = useDirectorStore((state) => state.updateObjectMotionKeyframe);
   const setProgress = useDirectorStore((state) => state.setCameraMotionProgress);
   const setPlaying = useDirectorStore((state) => state.setCameraMotionPlaying);
   const updateCameraMotionPath = useDirectorStore((state) => state.updateCameraMotionPath);
@@ -59,6 +63,9 @@ export function ObjectMotionTransport() {
     (keyframe) => Math.abs(keyframe.time - progress) <= CURRENT_KEYFRAME_TOLERANCE
   );
   const isAtStart = progress <= CURRENT_KEYFRAME_TOLERANCE;
+  const isCharacterRoute = selectedObject?.kind === "character";
+  const pointLabel = isCharacterRoute ? "路线点" : "动作点";
+  const recordLabel = isAtStart ? `记录起点${isCharacterRoute ? "路线" : ""}` : `记录当前位置${isCharacterRoute ? "路线" : ""}`;
 
   function togglePlayback() {
     if (!hasPlayableObjectMotion) return;
@@ -108,7 +115,6 @@ export function ObjectMotionTransport() {
   }
 
   const objectKindLabel = selectedObject?.kind === "character" ? "人物" : "道具";
-  const recordLabel = isAtStart ? "记录起点" : "记录当前位置";
 
   return (
     <section
@@ -191,7 +197,8 @@ export function ObjectMotionTransport() {
           onClick={() => {
             if (!selectedObject) return;
             setPlaying(false);
-            addObjectMotionKeyframe(selectedObject.id, progress);
+            const recorded = addObjectMotionKeyframe(selectedObject.id, progress);
+            if (recorded) selectObjectMotionKeyframe(recorded);
           }}
         >
           <MapPinPlus aria-hidden="true" size={15} />
@@ -210,28 +217,76 @@ export function ObjectMotionTransport() {
                 key={keyframe.id}
                 className={isCurrent ? "is-current" : undefined}
                 type="button"
-                aria-label={`跳转到${selectedObject?.name ?? "对象"}动作点 ${index + 1}`}
+                aria-label={`跳转到${selectedObject?.name ?? "对象"}${pointLabel} ${index + 1}`}
                 aria-pressed={isCurrent}
-                title={`${formatSeconds(keyframe.time * duration)} · 动作点 ${index + 1}`}
-                onClick={() => seek(keyframe.time)}
+                title={`${formatSeconds(keyframe.time * duration)} · ${pointLabel} ${index + 1}`}
+                onClick={() => {
+                  selectObjectMotionKeyframe(keyframe.id);
+                  seek(keyframe.time);
+                }}
               >
                 {index + 1}
               </button>
             );
           }) : (
-            <small>{selectedObject ? "还没有动作点" : "选择对象后记录动作"}</small>
+            <small>{selectedObject ? `还没有${pointLabel}` : "选择对象后记录动作"}</small>
           )}
         </div>
+
+        {isCharacterRoute && selectedObject && currentKeyframe ? (
+          <>
+            <button
+              className="object-motion-transport__record"
+              type="button"
+              aria-label={`在${selectedObject.name}当前路线点后插入`}
+              disabled={keyframes.findIndex((item) => item.id === currentKeyframe.id) >= keyframes.length - 1}
+              onClick={() => {
+                const inserted = insertObjectMotionKeyframeAfter(selectedObject.id, currentKeyframe.id);
+                if (inserted) selectObjectMotionKeyframe(inserted);
+              }}
+            >
+              <MapPinPlus aria-hidden="true" size={15} />
+              插入点
+            </button>
+            <label className="object-motion-transport__duration-control">
+              <span>本段动作</span>
+              <select
+                aria-label={`${selectedObject.name}当前路线段动作`}
+                value={currentKeyframe.actionPresetId ?? ""}
+                onChange={(event) => updateObjectMotionKeyframe(selectedObject.id, currentKeyframe.id, {
+                  actionPresetId: event.currentTarget.value || null,
+                })}
+              >
+                <option value="">自动行走</option>
+                {CHARACTER_ACTION_PRESETS.map((preset) => <option key={preset.id} value={preset.id}>{preset.label}</option>)}
+              </select>
+            </label>
+            <label className="object-motion-transport__duration-control">
+              <span>朝向</span>
+              <select
+                aria-label={`${selectedObject.name}当前路线点朝向`}
+                value={currentKeyframe.facingMode ?? "manual"}
+                onChange={(event) => updateObjectMotionKeyframe(selectedObject.id, currentKeyframe.id, {
+                  facingMode: event.currentTarget.value === "path" ? "path" : "manual",
+                })}
+              >
+                <option value="path">面向下一个点</option>
+                <option value="manual">手动方向</option>
+              </select>
+            </label>
+          </>
+        ) : null}
 
         <button
           className="object-motion-transport__delete"
           type="button"
           disabled={!selectedObject || !currentKeyframe}
-          aria-label={selectedObject ? `删除${selectedObject.name}当前动作点` : "删除当前动作点"}
+          aria-label={selectedObject ? `删除${selectedObject.name}当前${pointLabel}` : "删除当前动作点"}
           onClick={() => {
             if (!selectedObject || !currentKeyframe) return;
             setPlaying(false);
             deleteObjectMotionKeyframe(selectedObject.id, currentKeyframe.id);
+            selectObjectMotionKeyframe(null);
           }}
         >
           <Trash2 aria-hidden="true" size={14} />
