@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type MouseEvent } from "react";
-import { Box, Camera, ChevronDown, ChevronRight, Eye, EyeOff, Lock, Search, Unlock, User, Users } from "lucide-react";
+import { Box, Camera, ChevronDown, ChevronRight, Eye, EyeOff, Layers3, Lock, Search, Unlock, User, Users } from "lucide-react";
 import type { DirectorObject, DirectorObjectKind } from "../schema/directorProject";
 import { useDirectorStore } from "../store/directorStore";
 
@@ -286,6 +286,15 @@ export function ObjectTreePanel() {
   return (
     <section className="panel-card object-tree-panel">
       <h2 className="visually-hidden">场景对象</h2>
+      <div className="object-tree-heading">
+        <span className="object-tree-heading-icon" aria-hidden="true">
+          <Layers3 size={15} strokeWidth={1.8} />
+        </span>
+        <div>
+          <strong>场景层级</strong>
+          <small>{objects.length} 个对象</small>
+        </div>
+      </div>
       <label className="object-search-field">
         <Search aria-hidden="true" size={16} strokeWidth={1.8} />
         <input

@@ -318,6 +318,7 @@ export function ObjectMotionTransport() {
             type="button"
             disabled={!selectedObject}
             aria-label={selectedObject ? `${recordLabel}：${selectedObject.name}` : "记录人物或道具动作点"}
+            title={recordLabel}
             onClick={() => {
               if (!selectedObject) return;
               setPlaying(false);
@@ -326,7 +327,7 @@ export function ObjectMotionTransport() {
             }}
           >
             <MapPinPlus aria-hidden="true" size={15} />
-            {recordLabel}
+            <span>{recordLabel}</span>
           </button>
           <div
             className="object-motion-transport__keyframes"
@@ -362,6 +363,7 @@ export function ObjectMotionTransport() {
           type="button"
           disabled={isCharacterRoute || !selectedObject || !currentKeyframe}
           aria-label={selectedObject ? `删除${selectedObject.name}当前${pointLabel}` : "删除当前动作点"}
+          title="删除当前点"
           onClick={() => {
             if (!selectedObject || !currentKeyframe) return;
             setPlaying(false);
