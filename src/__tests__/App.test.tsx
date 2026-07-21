@@ -76,7 +76,7 @@ it("renders the director desk header and view mode switch", () => {
   const { container } = render(<App />);
 
   expect(screen.getByText("3D导演台")).toBeInTheDocument();
-  expect(screen.getByLabelText("当前版本 v0.3.0")).toBeInTheDocument();
+  expect(screen.getByLabelText("当前版本 v0.3.1")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "导演视角" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "第一视角" })).toBeInTheDocument();
   expect(container.querySelector(".top-bar-center .mode-toggle")).toBeInTheDocument();
