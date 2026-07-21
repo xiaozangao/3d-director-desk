@@ -12,6 +12,11 @@ import { requestCleanFrameExport } from "./cleanFrameExport";
 import { requestReferenceVideoExport } from "./referenceVideoExport";
 import { getDirectorProjectFingerprint } from "./projectDocument";
 import { listDirectorPluginResults, submitDirectorPluginResult } from "./pluginResultRegistry";
+import {
+  initTauriDirectorHostTransport,
+  postTauriDirectorHostMessage,
+  type DirectorDeskTransportMessage,
+} from "./tauriHostTransport";
 
 interface HostPanoramaPayload {
   edgeId?: unknown;
@@ -36,6 +41,7 @@ export interface HostCaptureBatchPayload {
 
 let initialized = false;
 let activeExtensionExportRequestId: string | null = null;
+let clearTauriTransport: (() => void) | null = null;
 export const DIRECTOR_DESK_SESSION_OPENED_EVENT = "storyai:director-desk-session-opened";
 
 function normalizeString(value: unknown) {
@@ -127,14 +133,17 @@ function openHostSession(payload: HostSessionPayload) {
   if (instanceId) {
     useDirectorStore.getState().openScopedScene(instanceId);
     window.dispatchEvent(new CustomEvent(DIRECTOR_DESK_SESSION_OPENED_EVENT, { detail: { instanceId } }));
+    postDirectorDeskMessageToHost({ type: "storyai:director-desk-ready" });
   }
 }
 
+export function postDirectorDeskMessageToHost(message: DirectorDeskTransportMessage) {
+  if (postTauriDirectorHostMessage(message)) return;
+  window.parent?.postMessage(message, getDirectorDeskHostOrigin());
+}
+
 function postDirectorExtensionResponse(payload: DirectorExtensionResponsePayload) {
-  window.parent?.postMessage(
-    { type: DIRECTOR_EXTENSION_RESPONSE_TYPE, payload },
-    getDirectorDeskHostOrigin()
-  );
+  postDirectorDeskMessageToHost({ type: DIRECTOR_EXTENSION_RESPONSE_TYPE, payload });
 }
 
 async function handleDirectorExtensionRequest(payload: unknown) {
@@ -271,35 +280,32 @@ export function postDirectorDeskCapturesToHost(
     return;
   }
 
-  window.parent?.postMessage(
-    {
-      type: "storyai:director-desk-captures-sent",
-      payload: {
-        captures: normalizedCaptures,
-      },
-    },
-    getDirectorDeskHostOrigin()
-  );
+  postDirectorDeskMessageToHost({
+    type: "storyai:director-desk-captures-sent",
+    payload: { captures: normalizedCaptures },
+  });
+}
+
+function handleHostProtocolMessage(message: DirectorDeskTransportMessage) {
+  if (message.type === "storyai:director-desk-session") {
+    openHostSession((message.payload || {}) as HostSessionPayload);
+    return;
+  }
+
+  if (message.type === "storyai:director-desk-panorama") {
+    importHostPanorama((message.payload || {}) as HostPanoramaPayload);
+    return;
+  }
+
+  if (message.type === DIRECTOR_EXTENSION_REQUEST_TYPE) {
+    void handleDirectorExtensionRequest(message.payload);
+  }
 }
 
 function handleHostMessage(event: MessageEvent) {
-  if (!isAllowedHostEvent(event)) {
-    return;
-  }
-
-  if (event.data?.type === "storyai:director-desk-session") {
-    openHostSession((event.data.payload || {}) as HostSessionPayload);
-    return;
-  }
-
-  if (event.data?.type === "storyai:director-desk-panorama") {
-    importHostPanorama((event.data.payload || {}) as HostPanoramaPayload);
-    return;
-  }
-
-  if (event.data?.type === DIRECTOR_EXTENSION_REQUEST_TYPE) {
-    void handleDirectorExtensionRequest(event.data.payload);
-  }
+  if (!isAllowedHostEvent(event)) return;
+  if (!event.data || typeof event.data !== "object" || typeof event.data.type !== "string") return;
+  handleHostProtocolMessage(event.data as DirectorDeskTransportMessage);
 }
 
 export function initDirectorDeskHostBridge() {
@@ -310,6 +316,14 @@ export function initDirectorDeskHostBridge() {
   initialized = true;
   applyDirectorDeskTheme(getInitialHostTheme() ?? "dark");
   window.addEventListener("message", handleHostMessage);
+  void initTauriDirectorHostTransport(handleHostProtocolMessage).then((cleanup) => {
+    if (!cleanup) return;
+    if (!initialized) {
+      cleanup();
+      return;
+    }
+    clearTauriTransport = cleanup;
+  });
 }
 
 export function clearDirectorDeskHostBridge() {
@@ -320,4 +334,6 @@ export function clearDirectorDeskHostBridge() {
   initialized = false;
   activeExtensionExportRequestId = null;
   window.removeEventListener("message", handleHostMessage);
+  clearTauriTransport?.();
+  clearTauriTransport = null;
 }
