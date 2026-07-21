@@ -23,7 +23,7 @@ const localMixamoAnimationsAvailable = requiredMixamoAnimations.every((fileName)
 
 export default defineConfig({
   base: "./",
-  assetsInclude: ["**/*.fbx", "**/*.glb", "**/*.obj"],
+  assetsInclude: ["**/*.fbx", "**/*.glb", "**/*.obj", "**/*.bvh"],
   plugins: [react()],
   define: {
     __APP_VERSION__: JSON.stringify(appVersion),

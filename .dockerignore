@@ -1,0 +1,9 @@
+.git
+.secrets
+dist
+node_modules
+public/local-assets
+services/kimodo/.data
+services/kimodo/.venv
+**/__pycache__
+*.log

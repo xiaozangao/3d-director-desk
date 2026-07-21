@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   inspectCharacterAnimationFile,
   inspectCharacterAnimations,
+  getCharacterAnimationFormat,
   type CharacterAnimationRigProfile,
 } from "../characterAnimationInspection";
 
@@ -36,6 +37,7 @@ describe("character animation inspection", () => {
     ["bip", ["Bip001 Pelvis", "Bip001 Spine", "Bip001 L UpperArm"]],
     ["cc-base", ["CC_Base_Hip", "CC_Base_Spine01", "CC_Base_L_Upperarm"]],
     ["generic", ["Hips", "Spine", "Head", "LeftArm", "RightArm", "LeftLeg", "RightLeg"]],
+    ["soma", ["Hips", "Spine1", "Chest", "LeftLeg", "LeftShin", "RightLeg", "RightShin"]],
     ["unknown", ["Cube", "CameraTarget", "ControlNode"]],
   ])("infers the %s profile from track node names", (expectedProfile, nodeNames) => {
     const report = inspectCharacterAnimations([makeClip("Take", 1, nodeNames)], "fbx");
@@ -100,8 +102,9 @@ describe("character animation inspection", () => {
     });
   });
 
-  it("rejects unsupported animation file formats", async () => {
-    const file = new File(["animation"], "take.bvh", { type: "application/octet-stream" });
-    await expect(inspectCharacterAnimationFile(file)).rejects.toThrow("角色动画目前仅支持 FBX / GLB 文件");
+  it("recognizes BVH animation files and rejects unrelated formats", async () => {
+    expect(getCharacterAnimationFormat("take.bvh")).toBe("bvh");
+    const file = new File(["animation"], "take.txt", { type: "text/plain" });
+    await expect(inspectCharacterAnimationFile(file)).rejects.toThrow("角色动画目前仅支持 FBX / GLB / BVH 文件");
   });
 });

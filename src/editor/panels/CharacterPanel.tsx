@@ -18,6 +18,7 @@ import { readLocalModelFile } from "../loaders/localModelImport";
 import { createImportedCharacterActionId } from "../schema/importedCharacterAction";
 import type { CharacterRigProfile } from "../schema/directorProject";
 import { isCompleteDirectorCharacterBoneMap } from "../schema/semanticBody";
+import { KimodoMotionPanel } from "../kimodo/KimodoMotionPanel";
 import { RouteCustomEasingControl } from "../motion/RouteCustomEasingControl";
 import {
   areAnimationProfilesCompatible,
@@ -585,11 +586,16 @@ export function CharacterPanel() {
             )) : null}
           </div>
           {!isCrowd ? (
-            <div className="imported-action-section">
+            <>
+              <KimodoMotionPanel
+                characterId={role.id}
+                disabled={!allowsHumanoidActions}
+              />
+              <div className="imported-action-section">
               <div className="imported-action-header">
                 <div>
                   <strong>我的动作</strong>
-                  <span>{animationAssets.length ? `${compatibleAnimationAssets.length}/${animationAssets.length} 个文件兼容` : "支持 FBX / GLB"}</span>
+                  <span>{animationAssets.length ? `${compatibleAnimationAssets.length}/${animationAssets.length} 个文件兼容` : "支持 FBX / GLB / BVH"}</span>
                 </div>
                 <button
                   className="imported-action-upload"
@@ -605,7 +611,7 @@ export function CharacterPanel() {
                 ref={animationInputRef}
                 aria-label="选择人物动作文件"
                 className="hidden-file-input"
-                accept=".fbx,.glb"
+                accept=".fbx,.glb,.bvh"
                 type="file"
                 onChange={(event) => void handleAnimationImport(event)}
               />
@@ -637,7 +643,8 @@ export function CharacterPanel() {
                   })}
                 </div>
               ) : null}
-            </div>
+              </div>
+            </>
           ) : null}
         </InspectorSection>
       ) : (

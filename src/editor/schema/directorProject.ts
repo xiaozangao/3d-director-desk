@@ -30,8 +30,9 @@ export type DirectorAssetKind = "character" | "scene" | "prop" | "panorama";
 export type DirectorAssetSource = "local" | "library";
 export type PanoramaProjectionMode = "equirectangular" | "backdrop";
 export type DirectorModelFormat = "fbx" | "obj" | "glb";
+export type DirectorAnimationFormat = "fbx" | "glb" | "bvh";
 export type GroundMaterialPresetId = "studio" | "concrete" | "asphalt" | "wood" | "grass";
-export type CharacterRigProfile = "mixamo" | "mixamo-alt" | "bip" | "cc-base" | "generic-humanoid" | "unknown";
+export type CharacterRigProfile = "mixamo" | "mixamo-alt" | "bip" | "cc-base" | "generic-humanoid" | "soma" | "unknown";
 export type CharacterImportReadiness = "ready" | "native-only" | "manual-mapping" | "static-only";
 
 export interface DirectorTransform {
@@ -99,7 +100,7 @@ export interface DirectorAnimationAssetRef {
   name: string;
   fileName: string;
   url: string;
-  modelFormat: Extract<DirectorModelFormat, "fbx" | "glb">;
+  modelFormat: DirectorAnimationFormat;
   storageKey?: string;
   byteLength?: number;
   rigProfile: CharacterRigProfile;

@@ -267,8 +267,8 @@
 
 .preset-grid {
   display: grid;
-  grid-template-columns: repeat(4, 57px);
-  column-gap: 10.6667px;
+  grid-template-columns: repeat(auto-fit, minmax(54px, 1fr));
+  column-gap: 10px;
   row-gap: 8px;
   width: var(--right-sidebar-content-width);
   max-width: 100%;
@@ -278,7 +278,8 @@
 .preset-grid button {
   display: grid;
   place-items: center;
-  width: 57px;
+  width: 100%;
+  min-width: 0;
   height: 34px;
   padding: 0;
   text-align: center;
@@ -331,6 +332,190 @@
   margin-top: 14px;
   padding-top: 12px;
   border-top: 1px solid rgb(var(--border-rgb) / 0.28);
+}
+
+.kimodo-motion-section {
+  display: grid;
+  gap: 9px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgb(var(--border-rgb) / 0.28);
+}
+
+.kimodo-motion-header,
+.kimodo-motion-header > span,
+.kimodo-generation-options,
+.kimodo-job-actions {
+  display: flex;
+  align-items: center;
+}
+
+.kimodo-motion-header {
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.kimodo-motion-header > span {
+  gap: 6px;
+  color: rgb(var(--text-rgb));
+  font-size: 12px;
+}
+
+.kimodo-motion-header > span > svg {
+  color: #72c9a5;
+}
+
+.kimodo-motion-header small {
+  color: rgb(var(--text-dim-rgb));
+  font-size: 10px;
+}
+
+.kimodo-motion-header small.is-ready {
+  color: #72c9a5;
+}
+
+.kimodo-prompt-field,
+.kimodo-generation-options label {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  color: rgb(var(--text-dim-rgb));
+  font-size: 10px;
+}
+
+.kimodo-prompt-field textarea,
+.kimodo-generation-options input {
+  width: 100%;
+  border: 1px solid rgb(var(--border-rgb) / 0.38);
+  border-radius: 5px;
+  color: rgb(var(--text-rgb));
+  background: rgb(var(--surface-rgb) / 0.75);
+  font: inherit;
+}
+
+.kimodo-prompt-field textarea {
+  min-height: 58px;
+  resize: vertical;
+  padding: 7px 8px;
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.kimodo-generation-options {
+  display: grid;
+  grid-template-columns: minmax(58px, 0.72fr) minmax(66px, 0.9fr) minmax(70px, auto);
+  gap: 6px;
+}
+
+.kimodo-generation-options input {
+  height: 30px;
+  min-width: 0;
+  padding: 0 6px;
+  font-size: 11px;
+}
+
+.kimodo-submit-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: end;
+  gap: 5px;
+  height: 30px;
+  border: 1px solid rgb(78 179 139 / 0.5);
+  border-radius: 5px;
+  padding: 0 9px;
+  color: #d8fff0;
+  background: rgb(35 123 91 / 0.68);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.kimodo-submit-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.kimodo-status-message,
+.kimodo-job > p {
+  margin: 0;
+  color: rgb(var(--text-muted-rgb));
+  font-size: 10px;
+  line-height: 15px;
+  white-space: normal;
+}
+
+.kimodo-job-list {
+  display: grid;
+  gap: 5px;
+}
+
+.kimodo-job {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 5px 8px;
+  min-width: 0;
+  padding: 7px 7px 6px 8px;
+  border: 1px solid rgb(var(--border-rgb) / 0.25);
+  border-radius: 6px;
+  background: rgb(var(--surface-rgb) / 0.52);
+}
+
+.kimodo-job-summary {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+}
+
+.kimodo-job-summary > span {
+  overflow: hidden;
+  color: rgb(var(--text-rgb));
+  font-size: 11px;
+  line-height: 15px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kimodo-job-summary > small {
+  color: rgb(var(--text-dim-rgb));
+  font-size: 10px;
+  line-height: 14px;
+}
+
+.kimodo-job progress {
+  grid-column: 1 / -1;
+  width: 100%;
+  height: 3px;
+  border: 0;
+  overflow: hidden;
+  accent-color: #4eb38b;
+}
+
+.kimodo-job > p {
+  grid-column: 1 / -1;
+  color: #ee9b9f;
+}
+
+.kimodo-job-actions {
+  align-self: start;
+  gap: 3px;
+}
+
+.kimodo-job-actions button {
+  display: grid;
+  place-items: center;
+  width: 25px;
+  height: 25px;
+  border: 1px solid rgb(var(--border-rgb) / 0.32);
+  border-radius: 4px;
+  padding: 0;
+  color: rgb(var(--text-muted-rgb));
+  background: rgb(var(--surface-rgb));
+}
+
+.kimodo-job-actions button:hover,
+.kimodo-job-actions button:focus-visible {
+  color: #d8fff0;
+  border-color: rgb(78 179 139 / 0.55);
 }
 
 .imported-action-header {

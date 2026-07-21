@@ -486,6 +486,7 @@ function ObjectSceneNode({
                     url: resolvedAnimationUrl,
                     format: importedAnimationAsset.modelFormat,
                     clipName: importedAnimationClip.name,
+                    rigProfile: importedAnimationAsset.rigProfile,
                   }
                 : null}
               orientationCorrection={asset?.characterOrientationCorrection}

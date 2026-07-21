@@ -5,6 +5,7 @@ import {
   AnimationMixer,
   Box3,
   Euler,
+  Group,
   LoopRepeat,
   Matrix4,
   Quaternion,
@@ -14,12 +15,13 @@ import {
 } from "three";
 import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { BVHLoader } from "three/examples/jsm/loaders/BVHLoader.js";
 import { clone as cloneSkeleton, retargetClip } from "three/examples/jsm/utils/SkeletonUtils.js";
 import { getCharacterActionPreset } from "../presets/characterActionPresets";
 import { getObjectMotionActionSample } from "../schema/objectMotion";
-import type { CharacterRigState, DirectorModelFormat, DirectorObject } from "../schema/directorProject";
+import type { CharacterRigProfile, CharacterRigState, DirectorAnimationFormat, DirectorModelFormat, DirectorObject } from "../schema/directorProject";
 import type { DirectorCharacterBoneMap } from "../schema/semanticBody";
-import { getSemanticBodyPartForBoneName } from "./semanticBodyTracking";
+import { findSemanticBodyPartNode, getSemanticBodyPartForBoneName } from "./semanticBodyTracking";
 import { getRuntimePlaybackProgress } from "./playbackRuntime";
 import { VIEWPORT_OBJECT_LABEL_VERTICAL_GAP } from "../schema/viewportLabels";
 import { disposeIsolatedModelMaterials, isolateAndTintModelMaterials } from "./modelMaterialTint";
@@ -40,8 +42,9 @@ interface MixamoCharacterModelProps {
 
 export interface ExternalCharacterAnimation {
   url: string;
-  format: "fbx" | "glb";
+  format: DirectorAnimationFormat;
   clipName: string;
+  rigProfile?: CharacterRigProfile;
 }
 
 const DEFAULT_ORIENTATION_CORRECTION: [number, number, number] = [0, 0, 0];
@@ -59,6 +62,28 @@ export type NativeActionClipNames = Partial<Record<string, string>>;
 
 export function getCanonicalHumanoidBoneName(name: string) {
   return name.replace(/:/g, "").replace(/^mixamorig1/i, "mixamorig");
+}
+
+const SOMA_SEMANTIC_BONES: Record<string, keyof DirectorCharacterBoneMap> = {
+  hips: "waist",
+  chest: "chest",
+  head: "head",
+  leftarm: "leftUpperArm",
+  leftforearm: "leftForearm",
+  lefthand: "leftHand",
+  rightarm: "rightUpperArm",
+  rightforearm: "rightForearm",
+  righthand: "rightHand",
+  leftleg: "leftThigh",
+  leftshin: "leftCalf",
+  leftfoot: "leftFoot",
+  rightleg: "rightThigh",
+  rightshin: "rightCalf",
+  rightfoot: "rightFoot",
+};
+
+export function getSomaSemanticBodyPartForBoneName(name: string) {
+  return SOMA_SEMANTIC_BONES[name.toLowerCase().replace(/[^a-z0-9]/g, "")] ?? null;
 }
 
 const XBOT_NATIVE_ACTION_CLIPS: NativeActionClipNames = {
@@ -248,7 +273,8 @@ export function prepareMixamoAnimationClip(
   retargetMode: MixamoRetargetMode = "direct",
   targetRestPose?: CharacterRestPose,
   sourceRestPose?: CharacterRestPose,
-  targetBoneMap?: DirectorCharacterBoneMap
+  targetBoneMap?: DirectorCharacterBoneMap,
+  sourceRigProfile?: CharacterRigProfile
 ) {
   if (sourceScene && retargetMode === "skeleton") {
     const skinnedClip = prepareSkinnedMixamoAnimationClip(sourceClip, scene, sourceScene, targetRestPose);
@@ -270,18 +296,23 @@ export function prepareMixamoAnimationClip(
       sourceObjectsByNormalizedName.set(normalizedName, object);
     }
   });
+  const mappedSomaTracks = new Set<(typeof clip.tracks)[number]>();
   clip.tracks.forEach((track) => {
     const propertySeparator = track.name.lastIndexOf(".");
     if (propertySeparator < 0) return;
     const sourceNodeName = track.name.slice(0, propertySeparator);
     const normalizedSourceNodeName = getCanonicalHumanoidBoneName(sourceNodeName);
-    const semanticBodyPart = getSemanticBodyPartForBoneName(sourceNodeName);
-    const mappedTargetName = semanticBodyPart ? targetBoneMap?.[semanticBodyPart] : undefined;
-    const mappedTargetNode = mappedTargetName ? scene.getObjectByName(mappedTargetName) : null;
+    const semanticBodyPart = sourceRigProfile === "soma"
+      ? getSomaSemanticBodyPartForBoneName(sourceNodeName)
+      : getSemanticBodyPartForBoneName(sourceNodeName);
+    const mappedTargetNode = semanticBodyPart
+      ? findSemanticBodyPartNode(scene, semanticBodyPart, targetBoneMap)
+      : null;
     const targetNode = mappedTargetNode
       ?? scene.getObjectByName(sourceNodeName)
       ?? objectsByNormalizedName.get(normalizedSourceNodeName);
     if (!targetNode) return;
+    if (sourceRigProfile === "soma") mappedSomaTracks.add(track);
 
     if (
       track.name.endsWith(".quaternion")
@@ -307,9 +338,16 @@ export function prepareMixamoAnimationClip(
       track.name = `${targetNode.name}${track.name.slice(propertySeparator)}`;
     }
   });
+  if (sourceRigProfile === "soma") {
+    clip.tracks = clip.tracks.filter((track) => mappedSomaTracks.has(track));
+  }
+  const targetHipsNode = findSemanticBodyPartNode(scene, "waist", targetBoneMap);
   const hipsTrack = clip.tracks.find((track) => {
     const [nodeName, propertyName] = track.name.split(".");
-    return propertyName === "position" && getCanonicalHumanoidBoneName(nodeName).endsWith("mixamorigHips");
+    return propertyName === "position" && (
+      nodeName === targetHipsNode?.name
+      || getSemanticBodyPartForBoneName(nodeName) === "waist"
+    );
   });
   if (!hipsTrack || hipsTrack.getValueSize() !== 3) return clip;
 
@@ -320,7 +358,8 @@ export function prepareMixamoAnimationClip(
 
   const sourceBaseY = hipsTrack.values[1];
   const sourceHips = sourceScene
-    ? sourceScene.getObjectByName(nodeName)
+    ? findSemanticBodyPartNode(sourceScene, "waist")
+      ?? sourceScene.getObjectByName(nodeName)
       ?? sourceObjectsByNormalizedName.get(getCanonicalHumanoidBoneName(nodeName))
     : null;
   const sourceHipsWorldHeight = sourceHips
@@ -338,7 +377,7 @@ export function prepareMixamoAnimationClip(
   for (let index = 0; index < hipsTrack.values.length; index += 3) {
     const worldVerticalDelta = new Vector3(
       0,
-      retargetMode === "skeleton"
+      retargetMode === "skeleton" && sourceRigProfile !== "soma"
         ? 0
         : (hipsTrack.values[index + 1] - sourceBaseY) * worldHeightScale,
       0
@@ -467,6 +506,7 @@ function PreparedExternalAnimationClip({
   scene,
   sourceClip,
   sourceScene,
+  sourceRigProfile,
   runtimeMotion,
   targetBoneMap,
 }: {
@@ -476,6 +516,7 @@ function PreparedExternalAnimationClip({
   scene: Object3D;
   sourceClip: AnimationClip | null;
   sourceScene: Object3D;
+  sourceRigProfile?: CharacterRigProfile;
   runtimeMotion?: { duration: number; object: DirectorObject };
   targetBoneMap?: DirectorCharacterBoneMap;
 }) {
@@ -489,10 +530,11 @@ function PreparedExternalAnimationClip({
           retargetMode,
           restPose,
           sourceRestPose,
-          targetBoneMap
+          targetBoneMap,
+          sourceRigProfile
         )
       : null,
-    [restPose, retargetMode, scene, sourceClip, sourceRestPose, sourceScene, targetBoneMap]
+    [restPose, retargetMode, scene, sourceClip, sourceRestPose, sourceRigProfile, sourceScene, targetBoneMap]
   );
   return clip
     ? <MixamoAnimationPlayer animationTimeSeconds={animationTimeSeconds} clip={clip} restPose={restPose} runtimeMotion={runtimeMotion} scene={scene} />
@@ -527,6 +569,33 @@ function ExternalGlbAnimationClip({ animation, ...props }: {
   return <PreparedExternalAnimationClip {...props} sourceClip={sourceClip} sourceScene={source.scene} />;
 }
 
+function ExternalBvhAnimationClip({ animation, ...props }: {
+  animation: ExternalCharacterAnimation;
+  animationTimeSeconds: number;
+  retargetMode: MixamoRetargetMode;
+  restPose: CharacterRestPose;
+  runtimeMotion?: { duration: number; object: DirectorObject };
+  targetBoneMap?: DirectorCharacterBoneMap;
+  scene: Object3D;
+}) {
+  const source = useLoader(BVHLoader, animation.url);
+  const sourceScene = useMemo(() => {
+    const root = new Group();
+    const sourceRoot = source.skeleton.bones[0];
+    if (sourceRoot) root.add(sourceRoot);
+    root.updateMatrixWorld(true);
+    return root;
+  }, [source]);
+  return (
+    <PreparedExternalAnimationClip
+      {...props}
+      sourceClip={source.clip}
+      sourceRigProfile={animation.rigProfile ?? "soma"}
+      sourceScene={sourceScene}
+    />
+  );
+}
+
 function ExternalCharacterAnimationClip(props: {
   animation: ExternalCharacterAnimation;
   animationTimeSeconds: number;
@@ -536,9 +605,9 @@ function ExternalCharacterAnimationClip(props: {
   targetBoneMap?: DirectorCharacterBoneMap;
   scene: Object3D;
 }) {
-  return props.animation.format === "glb"
-    ? <ExternalGlbAnimationClip {...props} />
-    : <ExternalFbxAnimationClip {...props} />;
+  if (props.animation.format === "glb") return <ExternalGlbAnimationClip {...props} />;
+  if (props.animation.format === "bvh") return <ExternalBvhAnimationClip {...props} />;
+  return <ExternalFbxAnimationClip {...props} />;
 }
 
 function LoadedMixamoCharacter({

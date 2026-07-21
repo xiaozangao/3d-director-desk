@@ -5,6 +5,7 @@ import {
   captureCharacterRestPose,
   getCanonicalHumanoidBoneName,
   getFallbackMixamoAnimationUrl,
+  getSomaSemanticBodyPartForBoneName,
   getNativeMixamoActionClip,
   prepareMixamoAnimationClip,
   ROBOT_EXPRESSIVE_ACTION_CLIPS,
@@ -153,6 +154,45 @@ it("retargets Mixamo hips height and removes horizontal root motion", () => {
 
   expect(values).toEqual([1, 105, 2, 1, 127, 2]);
   expect(Array.from(sourceClip.tracks[0].values)).toEqual([0, 90, 0, 15, 112, 30]);
+});
+
+it("maps SOMA body bones without confusing thigh and shin names", () => {
+  expect(getSomaSemanticBodyPartForBoneName("Hips")).toBe("waist");
+  expect(getSomaSemanticBodyPartForBoneName("LeftLeg")).toBe("leftThigh");
+  expect(getSomaSemanticBodyPartForBoneName("LeftShin")).toBe("leftCalf");
+  expect(getSomaSemanticBodyPartForBoneName("RightFoot")).toBe("rightFoot");
+  expect(getSomaSemanticBodyPartForBoneName("LeftHandThumb1")).toBeNull();
+});
+
+it("retargets SOMA hips motion while removing horizontal displacement", () => {
+  const sourceScene = new Group();
+  const sourceHips = new Bone();
+  sourceHips.name = "Hips";
+  sourceHips.position.set(0, 100, 0);
+  sourceScene.add(sourceHips);
+
+  const targetScene = new Group();
+  const targetHips = new Bone();
+  targetHips.name = "mixamorigHips";
+  targetHips.position.set(1, 105, 2);
+  targetScene.add(targetHips);
+  const clip = new AnimationClip("kimodo", 1, [
+    new VectorKeyframeTrack("Hips.position", [0, 1], [0, 100, 0, 20, 120, 30]),
+  ]);
+
+  const prepared = prepareMixamoAnimationClip(
+    clip,
+    targetScene,
+    sourceScene,
+    "local-rest",
+    captureCharacterRestPose(targetScene),
+    captureCharacterRestPose(sourceScene),
+    undefined,
+    "soma"
+  );
+
+  expect(prepared.tracks[0].name).toBe("mixamorigHips.position");
+  expectTupleClose(Array.from(prepared.tracks[0].values), [1, 105, 2, 1, 126, 2]);
 });
 
 it("maps vertical hips motion through a rotated and scaled target parent", () => {

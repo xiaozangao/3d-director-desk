@@ -1194,7 +1194,7 @@ export function ViewportToolbar({
         className="hidden-file-input"
         data-testid="character-local-model-input"
         tabIndex={-1}
-        accept=".fbx,.glb"
+        accept=".fbx,.glb,.bvh"
         type="file"
         onChange={(event) => void handleCharacterModelChange(event)}
       />

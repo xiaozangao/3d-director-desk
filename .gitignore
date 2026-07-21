@@ -18,6 +18,13 @@ npm-debug.log*
 .env
 .env.*
 !.env.example
+!.env.kimodo.example
+.secrets/
+.venv/
+services/kimodo/.venv/
+services/kimodo/.data/
+__pycache__/
+*.py[cod]
 *.tsbuildinfo
 vite.config.js
 vite.config.d.ts
