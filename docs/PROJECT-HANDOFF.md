@@ -816,7 +816,7 @@ Mixamo、mixamorig1、RobotExpressive、Soldier 和本地 GUO 测试覆盖较多
 
 ## 21. 接手后的第一小时
 
-1. 阅读本文档、`README.md` 和 `DEVELOPMENT-ROADMAP.md`。
+1. 阅读本文档、`../README.md` 和 `DEVELOPMENT-ROADMAP.md`。
 2. 执行 `git status --short --branch`，确认大量本地改动仍存在。
 3. 不修改文件，先执行 `npm test` 和 `npm run build`。
 4. 启动新端口并打开一个独立 `instanceId`。
@@ -863,12 +863,12 @@ Mixamo、mixamorig1、RobotExpressive、Soldier 和本地 GUO 测试覆盖较多
 
 ## 25. 相关文档索引
 
-- `README.md`：面向普通用户和开源访问者。
+- `../README.md`：面向普通用户和开源访问者。
 - `DEVELOPMENT-ROADMAP.md`：10 个开发目标和完成状态。
 - `docs/embed-contract.md`：二创协议完整说明。
-- `MILESTONE-*.md`：各阶段实现与验证证据。
-- `MILESTONE-BACKUP-RESTORE-AUDIT.md`：本地副本和恢复演练。
-- `MILESTONE-FULL-AUDIT-20260716.md`：严格审计记录。
+- `milestones/MILESTONE-*.md`：各阶段实现与验证证据。
+- `milestones/MILESTONE-BACKUP-RESTORE-AUDIT.md`：本地副本和恢复演练。
+- `milestones/MILESTONE-FULL-AUDIT-20260716.md`：严格审计记录。
 - `public/local-assets/mixamo/SOURCES.md`：本地兼容动作和模型来源记录。
 - `UPSTREAM.md`：上游项目和改造来源。
 

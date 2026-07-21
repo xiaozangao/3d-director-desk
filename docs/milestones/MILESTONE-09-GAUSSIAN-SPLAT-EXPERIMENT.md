@@ -4,7 +4,7 @@
 
 ## 实验边界
 
-- 独立入口：`/gaussian-splat-experiment.html`。
+- 独立入口：`/examples/experiments/gaussian-splat-experiment.html`。
 - 不接入导演台 store、对象树、模型导入器、工程 JSON 或二创协议。
 - 主导演台不会加载 Spark；只有进入实验页时才加载高斯渲染代码。
 - 使用 MIT 协议的 `@sparkjsdev/spark 2.1.0`，与当前 Three.js 版本兼容。

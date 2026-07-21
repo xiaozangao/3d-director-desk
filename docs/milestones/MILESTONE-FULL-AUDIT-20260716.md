@@ -79,4 +79,4 @@
 - 未 commit、未 push、未同步 GitHub 或在线版。
 - 未清空浏览器导演台数据，未覆盖模型资源。
 - 未处理 `.firecrawl/`、`.research-video/`、`.video-build/`、`成片/`。
-- 本轮新增真实证据：`extension-protocol-smoke-result-v2.png`、`extension-video-smoke-result-v2.png`。
+- 本轮新增真实证据：`../assets/smoke-results/extension-protocol-smoke-result-v2.png`、`../assets/smoke-results/extension-video-smoke-result-v2.png`。

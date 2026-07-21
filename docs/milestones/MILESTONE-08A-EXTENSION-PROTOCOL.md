@@ -47,7 +47,7 @@
 - `capabilities.get`、`project.get`、导出前后 `timeline.get`、插件提交与列表全部成功。
 - 工程快照自动测试明确覆盖镜头路线/FOV、逐点人物与身体部位追踪、立即/柔和跟随、人物路线/动作/停留/自定义曲线。
 - 浏览器本地素材边界同时覆盖模型与动作素材；错误 origin、错误父窗口 source 和非法操作均有自动测试。
-- 最新证据图：`extension-protocol-smoke-result-v2.png`。
+- 最新证据图：`../assets/smoke-results/extension-protocol-smoke-result-v2.png`。
 
 ## 尚未完成
 

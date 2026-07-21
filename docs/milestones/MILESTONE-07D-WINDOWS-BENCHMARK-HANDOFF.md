@@ -37,7 +37,7 @@
 - 浏览器确认普通页面只显示自动、流畅、高清三个选择。
 - 三个固定场景的规模、监看、全景、档位和画布尺寸均与报告一致。
 - 重型基准常驻状态条完整可见，页面业务错误为 0。
-- 证据图：`performance-benchmark-hud-result.png`。
+- 证据图：`../assets/smoke-results/performance-benchmark-hud-result.png`。
 
 ## 未完成边界
 

@@ -20,7 +20,7 @@
 - TypeScript 和 `git diff --check` 通过。
 - 浏览器隔离实例中，镜头选择“慢起”、人物选择“两头柔和”，两处均唯一 `aria-pressed=true`。
 - 镜头和人物各生成 2 个真实路线点；页面横向溢出为 0，业务控制台错误为 0。
-- 截图：`route-custom-easing-result.png`。
+- 截图：`../assets/smoke-results/route-custom-easing-result.png`。
 
 ## 保留状态
 

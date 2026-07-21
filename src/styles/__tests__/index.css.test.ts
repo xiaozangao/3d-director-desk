@@ -1,7 +1,18 @@
 import { readFileSync } from "node:fs";
 
+function readStyleBundle(path = "src/styles/index.css", visited = new Set<string>()): string {
+  if (visited.has(path)) return "";
+  visited.add(path);
+
+  const source = readFileSync(path, "utf8");
+  const basePath = path.slice(0, path.lastIndexOf("/") + 1);
+  return source.replace(/@import\s+["']\.\/([^"']+)["'];/g, (_match, importPath: string) =>
+    readStyleBundle(`${basePath}${importPath}`, visited)
+  );
+}
+
 it("uses the StoryAI theme tokens instead of the temporary demo palette", () => {
-  const css = readFileSync("src/styles/index.css", "utf8");
+  const css = readStyleBundle();
 
   expect(css).toMatch(/:root\s*\{[\s\S]*?color-scheme:\s*light;[\s\S]*?--panel-rgb:\s*255 255 255;[\s\S]*?--field-rgb:\s*248 250 252;[\s\S]*?--border-rgb:\s*224 224 224;[\s\S]*?--text-rgb:\s*0 0 0;/);
   expect(css).toMatch(/:root\[data-theme="dark"\],\s*[\r\n]+\s*:root\.dark\s*\{[\s\S]*?color-scheme:\s*dark;[\s\S]*?--panel-rgb:\s*26 26 26;[\s\S]*?--field-rgb:\s*10 10 12;[\s\S]*?--border-rgb:\s*42 42 42;[\s\S]*?--text-rgb:\s*255 255 255;/);
@@ -14,7 +25,7 @@ it("uses the StoryAI theme tokens instead of the temporary demo palette", () => 
 });
 
 it("paints a dark first frame before React and theme messages initialize", () => {
-  const css = readFileSync("src/styles/index.css", "utf8");
+  const css = readStyleBundle();
   const html = readFileSync("index.html", "utf8");
 
   expect(html).toMatch(/<style>[\s\S]*?html,\s*body,\s*#root\s*\{[\s\S]*?background:\s*#090909;[\s\S]*?<\/style>/);
@@ -22,7 +33,7 @@ it("paints a dark first frame before React and theme messages initialize", () =>
 });
 
 it("pins the central viewport into a full-bleed director workspace", () => {
-  const css = readFileSync("src/styles/index.css", "utf8");
+  const css = readStyleBundle();
 
   expect(css).toContain("grid-template-rows: auto 1fr;");
   expect(css).toContain(".director-shell");
@@ -52,7 +63,7 @@ it("pins the central viewport into a full-bleed director workspace", () => {
 });
 
 it("matches the provided top bar and view switch dimensions", () => {
-  const css = readFileSync("src/styles/index.css", "utf8");
+  const css = readStyleBundle();
 
   expect(css).toContain("grid-template-columns: var(--left-sidebar-width) minmax(0, 1fr) var(--right-sidebar-width);");
   expect(css).toContain("min-height: 70px;");
@@ -66,7 +77,7 @@ it("matches the provided top bar and view switch dimensions", () => {
 });
 
 it("matches the provided right inspector layout dimensions and field styling", () => {
-  const css = readFileSync("src/styles/index.css", "utf8");
+  const css = readStyleBundle();
 
   expect(css).toMatch(/\.right-sidebar\s*\{[\s\S]*?background:\s*rgb\(var\(--panel-rgb\)\);[\s\S]*?border-left:\s*1px solid rgb\(var\(--border-rgb\) \/ 0\.24\);/);
   expect(css).toMatch(/\.right-sidebar\s*\{[\s\S]*?overflow-x:\s*hidden;[\s\S]*?background:\s*rgb\(var\(--panel-rgb\)\);/);
@@ -153,7 +164,7 @@ it("matches the provided right inspector layout dimensions and field styling", (
 );
 
 it("matches the provided left object panel layout and icon button styling", () => {
-  const css = readFileSync("src/styles/index.css", "utf8");
+  const css = readStyleBundle();
 
   expect(css).toMatch(/\.left-sidebar\s*\{[\s\S]*?background:\s*rgb\(var\(--panel-rgb\)\);[\s\S]*?border-right:\s*1px solid rgb\(var\(--border-rgb\) \/ 0\.24\);/);
   expect(css).toMatch(/\.object-tree-panel\s*\{[\s\S]*?height:\s*100%;[\s\S]*?gap:\s*25px;[\s\S]*?padding:\s*20px 8px;/);
@@ -179,7 +190,7 @@ it("matches the provided left object panel layout and icon button styling", () =
 });
 
 it("uses the selected image card capsule style for viewport icon actions", () => {
-  const css = readFileSync("src/styles/index.css", "utf8");
+  const css = readStyleBundle();
 
   expect(css).toMatch(/\.viewport-toolbar\s*\{[\s\S]*?width:\s*max-content;[\s\S]*?max-width:\s*calc\(100% - 32px\);[\s\S]*?gap:\s*4px;[\s\S]*?padding:\s*4px;/);
   expect(css).toMatch(/\.viewport-toolbar-button\.ui-icon-button\s*\{[\s\S]*?width:\s*36px;[\s\S]*?height:\s*36px;[\s\S]*?border:\s*0;[\s\S]*?padding:\s*0;/);
@@ -206,7 +217,7 @@ it("uses the selected image card capsule style for viewport icon actions", () =>
 });
 
 it("renders the model library panel with the same frosted glass background treatment", () => {
-  const css = readFileSync("src/styles/index.css", "utf8");
+  const css = readStyleBundle();
 
   expect(css).toMatch(/\.model-library-panel\s*\{[\s\S]*?border:\s*1px solid rgb\(var\(--border-rgb\) \/ 0\.35\);[\s\S]*?background:\s*rgb\(var\(--panel-rgb\) \/ 0\.9\);[\s\S]*?backdrop-filter:\s*blur\(32px\);[\s\S]*?-webkit-backdrop-filter:\s*blur\(32px\);/);
   expect(css).toMatch(/\.model-library-tab\.is-active::after\s*\{[\s\S]*?width:\s*28px;[\s\S]*?height:\s*3px;[\s\S]*?border-radius:\s*0;[\s\S]*?background:\s*rgb\(var\(--accent-rgb\)\);/);
@@ -222,7 +233,7 @@ it("renders the model library panel with the same frosted glass background treat
 });
 
 it("renders the viewport aspect ratio picker as a horizontal floating panel", () => {
-  const css = readFileSync("src/styles/index.css", "utf8");
+  const css = readStyleBundle();
 
   expect(css).toMatch(/\.viewport-aspect-panel\s*\{[\s\S]*?position:\s*absolute;[\s\S]*?bottom:\s*calc\(40px \+ var\(--viewport-toolbar-height,\s*46px\) \+ 10px\);[\s\S]*?width:\s*340px;[\s\S]*?height:\s*206px;[\s\S]*?border:\s*1px solid rgb\(var\(--border-rgb\) \/ 0\.35\);[\s\S]*?border-radius:\s*22px;[\s\S]*?background:\s*rgb\(var\(--panel-rgb\) \/ 0\.9\);[\s\S]*?backdrop-filter:\s*blur\(32px\);[\s\S]*?-webkit-backdrop-filter:\s*blur\(32px\);/);
   expect(css).toMatch(/\.viewport-aspect-panel-title\s*\{[\s\S]*?font-size:\s*12px;[\s\S]*?line-height:\s*17px;/);
@@ -233,7 +244,7 @@ it("renders the viewport aspect ratio picker as a horizontal floating panel", ()
 });
 
 it("renders the viewport aspect frame overlay with frosted mask treatment", () => {
-  const css = readFileSync("src/styles/index.css", "utf8");
+  const css = readStyleBundle();
   const maskRule = css.match(/\.viewport-aspect-mask\s*\{(?<body>[\s\S]*?)\}/)?.groups?.body ?? "";
   const shellRule = css.match(/\.viewport-aspect-frame-shell\s*\{(?<body>[\s\S]*?)\}/)?.groups?.body ?? "";
 
@@ -264,7 +275,7 @@ it("renders the viewport aspect frame overlay with frosted mask treatment", () =
 });
 
 it("keeps the native viewport gizmo in a separate overlay above the frosted aspect mask", () => {
-  const css = readFileSync("src/styles/index.css", "utf8");
+  const css = readStyleBundle();
 
   expect(css).toMatch(/\.viewport-gizmo-overlay\s*\{[\s\S]*?position:\s*absolute;[\s\S]*?top:\s*20px;[\s\S]*?right:\s*20px;[\s\S]*?z-index:\s*20;[\s\S]*?width:\s*80px;[\s\S]*?height:\s*80px;[\s\S]*?pointer-events:\s*auto;/);
   expect(css).toMatch(/\.viewport-gizmo-overlay\s*>\s*div,\s*[\r\n]+\s*\.viewport-gizmo-overlay\s*canvas\s*\{[\s\S]*?width:\s*100%\s*!important;[\s\S]*?height:\s*100%\s*!important;/);
@@ -274,7 +285,7 @@ it("keeps the native viewport gizmo in a separate overlay above the frosted aspe
 });
 
 it("shows icon names as a floating label on viewport toolbar hover and focus", () => {
-  const css = readFileSync("src/styles/index.css", "utf8");
+  const css = readStyleBundle();
 
   expect(css).toMatch(/\.viewport-toolbar-button\s*\.viewport-toolbar-label\s*\{[\s\S]*?position:\s*absolute;[\s\S]*?bottom:\s*calc\(100% \+ 10px\);[\s\S]*?border-radius:\s*999px;[\s\S]*?opacity:\s*0;/);
   expect(css).toMatch(/\.viewport-toolbar-button\s*\.viewport-toolbar-label\s*\{[^}]*?font-size:\s*12px;/);
@@ -282,7 +293,7 @@ it("shows icon names as a floating label on viewport toolbar hover and focus", (
 });
 
 it("renders viewport object labels without an outline stroke", () => {
-  const css = readFileSync("src/styles/index.css", "utf8");
+  const css = readStyleBundle();
   const labelRule = css.match(/\.role-label\s*\{(?<body>[\s\S]*?)\}/)?.groups?.body ?? "";
 
   expect(labelRule).toContain("border-radius: 999px;");
@@ -290,7 +301,7 @@ it("renders viewport object labels without an outline stroke", () => {
 });
 
 it("lays out character pose presets as the requested 4 by 5 compact grid", () => {
-  const css = readFileSync("src/styles/index.css", "utf8");
+  const css = readStyleBundle();
 
   expect(css).toMatch(/\.pose-preset-section\s*\{[\s\S]*?width:\s*var\(--right-sidebar-content-width\);[\s\S]*?max-width:\s*100%;/);
   expect(css).toMatch(/\.preset-grid\s*\{[\s\S]*?grid-template-columns:\s*repeat\(4,\s*57px\);[\s\S]*?column-gap:\s*10\.6667px;[\s\S]*?row-gap:\s*8px;[\s\S]*?width:\s*var\(--right-sidebar-content-width\);[\s\S]*?justify-content:\s*start;/);
@@ -299,7 +310,7 @@ it("lays out character pose presets as the requested 4 by 5 compact grid", () =>
 });
 
 it("styles the character pose adjustment section title and content alignment", () => {
-  const css = readFileSync("src/styles/index.css", "utf8");
+  const css = readStyleBundle();
 
   expect(css).toMatch(/\.pose-adjust-section\s*\{[\s\S]*?justify-items:\s*start;/);
   expect(css).toMatch(/\.pose-preset-section\s*>\s*\.pose-adjust-section\s*\{[\s\S]*?margin-top:\s*18px;/);
@@ -309,7 +320,7 @@ it("styles the character pose adjustment section title and content alignment", (
 });
 
 it("styles the camera screenshot overview as grouped content with footer actions and centered empty state", () => {
-  const css = readFileSync("src/styles/index.css", "utf8");
+  const css = readStyleBundle();
 
   expect(css).toMatch(/\.camera-capture-overview\s*\{[\s\S]*?grid-template-rows:\s*minmax\(0,\s*1fr\);[\s\S]*?gap:\s*0;/);
   expect(css).toMatch(/\.right-sidebar\s*\.right-inspector\.camera-inspector-captures\s*\{[\s\S]*?height:\s*100%;[\s\S]*?overflow:\s*hidden;/);
@@ -328,20 +339,20 @@ it("styles the camera screenshot overview as grouped content with footer actions
 });
 
 it("does not install a full-viewport transform drag layer over the handle-based controls", () => {
-  const css = readFileSync("src/styles/index.css", "utf8");
+  const css = readStyleBundle();
 
   expect(css).not.toContain(".viewport-transform-drag-layer");
   expect(css).toMatch(/\.viewport-toolbar\s*\{[\s\S]*?z-index:\s*10;/);
 });
 
 it("keeps the viewport toolbar 40px below the framed viewport area", () => {
-  const css = readFileSync("src/styles/index.css", "utf8");
+  const css = readStyleBundle();
 
   expect(css).toMatch(/\.viewport-toolbar\s*\{[\s\S]*?bottom:\s*40px;/);
 });
 
 it("keeps the demo usable in narrower in-app browser widths", () => {
-  const css = readFileSync("src/styles/index.css", "utf8");
+  const css = readStyleBundle();
 
   expect(css).toContain("@media (max-width: 1180px)");
   expect(css).toMatch(/@media \(max-width: 1180px\)\s*\{[\s\S]*?\.director-shell-fullbleed\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1fr\);/);

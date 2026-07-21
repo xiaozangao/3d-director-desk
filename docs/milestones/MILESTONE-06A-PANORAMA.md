@@ -13,7 +13,7 @@
 
 ## 验证
 
-- 新增隔离真实浏览器入口：`panorama-export-smoke.html`，不读取或修改用户导演台数据。
+- 新增隔离真实浏览器入口：`../../examples/experiments/panorama-export-smoke.html`，不读取或修改用户导演台数据。
 - 五个独立 WebGL Canvas 覆盖导演主视口、成片监看小窗、第一视角、看成片、导出预览。
 - 使用具有明显方向特征的 2048 x 1024 全景测试图，依次验证 0°、120°、120° + 0.35 亮度。
 - 五视图最大归一化像素差：`0.000014`。
@@ -21,7 +21,7 @@
 - 降亮度后的平均亮度比：`0.602991`，证明 `backgroundBrightness` 实际进入渲染结果。
 - 通过正式成片帧导出器得到 PNG：1280 x 720、非黑屏；与看成片像素差 `0.004839`。
 - 通过正式参考视频导出器得到 VP9 WebM：1280 x 720、7470 bytes、可解码非黑屏；抽帧与看成片像素差 `0.010591`。
-- 浏览器结果截图：`panorama-export-smoke-result.png`。
+- 浏览器结果截图：`../assets/smoke-results/panorama-export-smoke-result.png`。
 - 像素分析单测：2 项通过。
 - TypeScript：`npx tsc -b --pretty false` 通过。
 - 聚焦测试：6 个文件、111 项测试通过。

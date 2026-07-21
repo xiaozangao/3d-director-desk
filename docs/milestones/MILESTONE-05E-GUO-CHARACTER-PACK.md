@@ -34,9 +34,9 @@
 - 模型库卡片：健壮男性显示“可用动作”，马和女性美人鱼显示“需骨架映射”。
 - 模型库共 39 张人物卡片，页面横向溢出为 0，业务控制台错误为 0。
 - 截图：
-  - `guo-humanoid-library-result.png`
-  - `guo-nonhumanoid-library-result-v2.png`
-  - `guo-character-compatibility-library-result.png`
+  - `../assets/smoke-results/guo-humanoid-library-result.png`
+  - `../assets/smoke-results/guo-nonhumanoid-library-result-v2.png`
+  - `../assets/smoke-results/guo-character-compatibility-library-result.png`
 
 ## 明确未完成
 

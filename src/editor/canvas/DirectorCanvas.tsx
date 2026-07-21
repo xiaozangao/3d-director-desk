@@ -11,7 +11,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type CSSProperties,
   type MutableRefObject,
 } from "react";
 import { Euler, Matrix4, PerspectiveCamera as ThreePerspectiveCamera, Quaternion, Spherical, Vector3 } from "three";
@@ -72,6 +71,18 @@ import {
 } from "../performance/automaticPerformanceRuntime";
 import { getRuntimePlaybackProgress, setRuntimePlaybackProgress } from "../runtime/playbackRuntime";
 import { restoreMediaExportPlayback } from "../io/mediaExportPlayback";
+import {
+  getViewportGizmoHitButtonStyle,
+  getViewportSnapshotFromGizmoDirection,
+  shouldRenderViewportGrid,
+  toSnapshotTuple,
+} from "./viewportGizmo";
+
+export {
+  getViewportGizmoHitButtonStyle,
+  getViewportSnapshotFromGizmoDirection,
+  shouldRenderViewportGrid,
+} from "./viewportGizmo";
 
 export const DEFAULT_DIRECTOR_VIEW_SNAPSHOT: CameraShotSnapshot = DEFAULT_DIRECTOR_CAMERA_VIEW_SNAPSHOT;
 const VIEWPORT_FRAME_PADDING = 40;
@@ -79,10 +90,6 @@ const VIEWPORT_TOOLBAR_BOTTOM_OFFSET = 40;
 const DEFAULT_VIEWPORT_TOOLBAR_HEIGHT = 44;
 const GIZMO_AXIS_COLORS: [string, string, string] = ["#E56C5B", "#6CDB7A", "#7AA7FF"];
 const GIZMO_VIEWPORT_SCALE = 25;
-const GIZMO_HIT_LAYER_SIZE = 80;
-const GIZMO_HIT_LAYER_CENTER = GIZMO_HIT_LAYER_SIZE / 2;
-const GIZMO_AXIS_SCREEN_RADIUS = 25;
-const GIZMO_AXIS_HIT_SIZE = 15;
 const LEFT_PANEL_WIDTH = 196;
 const RIGHT_PANEL_WIDTH = 276;
 const MOTION_STUDIO_DOCK_WIDTH = 380;
@@ -113,54 +120,6 @@ type ViewportCaptureLabel = {
   worldPosition: Vector3;
 };
 type ViewportCaptureFrameRect = NonNullable<ReturnType<typeof getViewportAspectFrameRect>>;
-
-export function shouldRenderViewportGrid(showGrid: boolean) {
-  return showGrid;
-}
-
-export function getViewportSnapshotFromGizmoDirection(
-  snapshot: CameraShotSnapshot,
-  direction: Vector3
-): CameraShotSnapshot {
-  const target = new Vector3(...snapshot.target);
-  const currentPosition = new Vector3(...snapshot.position);
-  const radius = Math.max(currentPosition.distanceTo(target), 0.000001);
-  const nextDirection = direction.lengthSq() === 0 ? new Vector3(0, 0, 1) : direction.clone().normalize();
-  const nextPosition = target.clone().add(nextDirection.multiplyScalar(radius));
-
-  return {
-    fov: snapshot.fov,
-    position: toSnapshotTuple(nextPosition),
-    target: snapshot.target,
-  };
-}
-
-export function getViewportGizmoHitButtonStyle(
-  snapshot: CameraShotSnapshot,
-  direction: [number, number, number]
-): CSSProperties {
-  const relativeCamera = new Vector3(...snapshot.position).sub(new Vector3(...snapshot.target));
-  const camera = new ThreePerspectiveCamera(snapshot.fov, 1);
-  const safeCameraPosition = relativeCamera.lengthSq() === 0 ? new Vector3(0, 0, 1) : relativeCamera;
-  camera.position.copy(safeCameraPosition);
-  camera.lookAt(0, 0, 0);
-  camera.updateMatrixWorld();
-
-  const gizmoQuaternion = new Quaternion().setFromRotationMatrix(new Matrix4().copy(camera.matrix).invert());
-  const projectedDirection = new Vector3(...direction).applyQuaternion(gizmoQuaternion);
-  const left = GIZMO_HIT_LAYER_CENTER + projectedDirection.x * GIZMO_AXIS_SCREEN_RADIUS - GIZMO_AXIS_HIT_SIZE / 2;
-  const top = GIZMO_HIT_LAYER_CENTER - projectedDirection.y * GIZMO_AXIS_SCREEN_RADIUS - GIZMO_AXIS_HIT_SIZE / 2;
-
-  return {
-    left: `${Number(left.toFixed(3))}px`,
-    top: `${Number(top.toFixed(3))}px`,
-    zIndex: Math.round((projectedDirection.z + 1) * 100),
-  };
-}
-
-function toSnapshotTuple(vector: Vector3): [number, number, number] {
-  return [vector.x, vector.y, vector.z].map((value) => Number(value.toFixed(6))) as [number, number, number];
-}
 
 function areCameraSnapshotsClose(a: CameraShotSnapshot, b: CameraShotSnapshot) {
   const tupleClose = (left: [number, number, number], right: [number, number, number]) =>

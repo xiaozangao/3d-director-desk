@@ -31,7 +31,7 @@
 - 已建立真实 Camille + Wave 五视图、五时间点、六骨骼点自动验收。
 - 倒拖和重播可回到完全一致的姿势，动作本身也有明确变化。
 
-检查点：备份目录中的 `MILESTONE-01-ACTION-RUNTIME.md`，以及 `MILESTONE-01B-ACTION-RUNTIME-SMOKE.md`。
+检查点：备份目录中的 `milestones/MILESTONE-01-ACTION-RUNTIME.md`，以及 `milestones/MILESTONE-01B-ACTION-RUNTIME-SMOKE.md`。
 
 ### 目标 2：统一人物与镜头路线
 
@@ -43,7 +43,7 @@
 - 自定义模式可选择直线、慢起、慢停和两头柔和的段内节奏，人物与镜头共用同一控件和数据字段。
 - 主视口、运镜工作台和摄影机轨迹面板统一按计算后的真实到达时间高亮和跳转，不再误用旧轨迹点时间。
 
-检查点：备份目录中的 `MILESTONE-02A-ROUTE-TIMING.md`、`02B`、`02C`，以及 `MILESTONE-02D-ROUTE-HOLD-ACTION-SMOKE.md`、`MILESTONE-02E-CUSTOM-ROUTE-EASING.md`。
+检查点：备份目录中的 `milestones/MILESTONE-02A-ROUTE-TIMING.md`、`02B`、`02C`，以及 `milestones/MILESTONE-02D-ROUTE-HOLD-ACTION-SMOKE.md`、`milestones/MILESTONE-02E-CUSTOM-ROUTE-EASING.md`。
 
 ### 目标 3：群友镜头预设底层
 
@@ -53,7 +53,7 @@
 - 已根据用户提供的截图确认首位群友贡献者：`AIGC 耀光`，抖音号 `AIJPDM001`。
 - 首页、README 和群友预设详情均展示真实贡献信息；后续贡献者仍必须由用户提供并确认，不伪造身份。
 
-检查点：`MILESTONE-03B-COMMUNITY-PRESETS.md`。
+检查点：`milestones/MILESTONE-03B-COMMUNITY-PRESETS.md`。
 
 ### 目标 4：身体部位追踪
 
@@ -64,7 +64,7 @@
 - 支持立即跟随与柔和跟随，主视口、小窗和导出共用同一运行时结果。
 - 已用真实 Camille + Wave 验证五视图右手动态跟拍；跟拍目标精确读取动作后的右手世界坐标，倒拖和重播保持一致。
 
-检查点：备份目录中的 `MILESTONE-04-BODY-TRACKING.md`，以及 `MILESTONE-04B-DYNAMIC-BODY-TRACKING-SMOKE.md`。
+检查点：备份目录中的 `milestones/MILESTONE-04-BODY-TRACKING.md`，以及 `milestones/MILESTONE-04B-DYNAMIC-BODY-TRACKING-SMOKE.md`。
 
 ### 目标 5：外部绑骨人物与动作导入
 
@@ -78,7 +78,7 @@
 - Bip/UE4、CC Base 和未知通用人形可在体检弹窗中补全 15 个主要骨骼映射，并用于外部动作重定向和身体部位跟拍。
 - 本地 37 个 GUO 绑骨 FBX 已逐文件通过生产体检器解析：33 个动作就绪，马、狼和两个人鱼明确标记为需专用/手动映射；模型库会在添加前显示兼容状态。
 
-检查点：备份目录中的 `MILESTONE-05A-CHARACTER-INSPECTION.md`、`05B`、`05C`，以及 `MILESTONE-05D-MANUAL-BONE-MAPPING.md`、`MILESTONE-05E-GUO-CHARACTER-PACK.md`。
+检查点：备份目录中的 `milestones/MILESTONE-05A-CHARACTER-INSPECTION.md`、`05B`、`05C`，以及 `milestones/MILESTONE-05D-MANUAL-BONE-MAPPING.md`、`milestones/MILESTONE-05E-GUO-CHARACTER-PACK.md`。
 
 ### 目标 6：全景图、地面材质与网格
 
@@ -86,7 +86,7 @@
 - 摄影棚、混凝土、柏油、木地板、草地五种地面材质。
 - 编辑网格、移动吸附、显示地面、路线防穿模互相独立。
 
-检查点：`MILESTONE-06A-PANORAMA.md`、`MILESTONE-06B-GROUND-GRID.md`。
+检查点：`milestones/MILESTONE-06A-PANORAMA.md`、`milestones/MILESTONE-06B-GROUND-GRID.md`。
 
 ## 下一目标
 
@@ -96,7 +96,7 @@
 
 小目标计划：
 
-1. 建立同一场景、同一动作、同一镜头的可重复性能基准。已完成，见 `MILESTONE-07A-PERFORMANCE-BASELINE.md`。
+1. 建立同一场景、同一动作、同一镜头的可重复性能基准。已完成，见 `milestones/MILESTONE-07A-PERFORMANCE-BASELINE.md`。
 2. 审计主视口、成片监看、模型、纹理和动画的主要性能开销。已完成。
 3. 增加自动、流畅、均衡、画质优先四档，小白只需要选档位。已完成。
 4. 档位统一控制 DPR、抗锯齿和监看渲染精度，不改变项目内容。已完成。
@@ -106,7 +106,7 @@
 8. 提供不采集隐私的群友基准报告导出，记录浏览器、显卡、场景规模和 FPS；整理最低、推荐和适合配置。已完成。
 9. 匿名报告新增标准化操作系统字段，可区分 Windows、macOS 和 Linux，不导出原始平台字符串。已完成。
 
-检查点：`MILESTONE-07A-PERFORMANCE-BASELINE.md`、`MILESTONE-07B-PERFORMANCE-PROFILES.md`、`MILESTONE-07C-BENCHMARK-SCENES.md`。
+检查点：`milestones/MILESTONE-07A-PERFORMANCE-BASELINE.md`、`milestones/MILESTONE-07B-PERFORMANCE-PROFILES.md`、`milestones/MILESTONE-07C-BENCHMARK-SCENES.md`。
 
 ## 后续目标
 
@@ -120,9 +120,9 @@
 
 小目标计划：
 
-1. 版本化工程 JSON、能力查询、工程读取、当前时间轴读取。已完成，见 `MILESTONE-08A-EXTENSION-PROTOCOL.md`。
-2. 增加参考视频、当前帧、首帧和尾帧的程序化导出请求，沿用现有画幅和 FOV。已完成，见 `MILESTONE-08B-PROGRAMMATIC-EXPORTS.md`。
-3. 定义插件读取场景、回传结果和错误状态的权限边界，不允许任意代码执行。已完成，见 `MILESTONE-08C-PLUGIN-RESULTS.md`。
+1. 版本化工程 JSON、能力查询、工程读取、当前时间轴读取。已完成，见 `milestones/MILESTONE-08A-EXTENSION-PROTOCOL.md`。
+2. 增加参考视频、当前帧、首帧和尾帧的程序化导出请求，沿用现有画幅和 FOV。已完成，见 `milestones/MILESTONE-08B-PROGRAMMATIC-EXPORTS.md`。
+3. 定义插件读取场景、回传结果和错误状态的权限边界，不允许任意代码执行。已完成，见 `milestones/MILESTONE-08C-PLUGIN-RESULTS.md`。
 4. 提供可运行宿主示例和完整中文二次开发说明，并验证旧嵌入消息继续兼容。已完成。
 
 2026-07-17 严格收口：
@@ -132,7 +132,7 @@
 - 真实 iframe 连续导出首帧、当前 42% 和尾帧，三张 PNG 均非黑、画面有变化，导出后时间轴恢复到 42%。
 - 修复 WebM 启动过早造成的约 0.1 秒黑帧；真实 8 秒 VP9 视频首段和后段均非黑且画面有变化。
 - 宿主示例增加协议版本、响应 action 和消息来源校验；视频请求超时独立放宽为 60 秒。
-- 检查点：`MILESTONE-08D-EXTENSION-AUDIT-HANDOFF.md`。
+- 检查点：`milestones/MILESTONE-08D-EXTENSION-AUDIT-HANDOFF.md`。
 
 ### 目标 9：高斯泼溅格式与承载实验
 
@@ -140,7 +140,7 @@
 
 - PLY、SPLAT、KSPLAT 三种格式加载。
 - 独立页面、独立分包和混合场景渲染。
-- 检查点：`MILESTONE-09-GAUSSIAN-SPLAT-EXPERIMENT.md`。
+- 检查点：`milestones/MILESTONE-09-GAUSSIAN-SPLAT-EXPERIMENT.md`。
 
 ### 目标 10：高斯空间与性能实验
 
@@ -151,7 +151,7 @@
 - 已完成 250K 与 1M 点场景的内存估算和性能基准，并提供匿名报告下载。
 - Spark 实验包约 4.97 MB，仍然偏重；Windows 真机和真实扫描场景尚未验证，因此暂不进入正式功能。
 
-检查点：`MILESTONE-10B-GAUSSIAN-SPATIAL.md`。
+检查点：`milestones/MILESTONE-10B-GAUSSIAN-SPATIAL.md`。
 
 ## 2026-07-17 动作运行时补充验收
 
@@ -159,7 +159,7 @@
 - 五视图五时间点差异全部为 0，动作变化量 0.572547，倒拖和重播差异为 0。
 - 当前全仓：82 个测试文件、633 项通过；生产构建通过。
 
-检查点：`MILESTONE-01B-ACTION-RUNTIME-SMOKE.md`。
+检查点：`milestones/MILESTONE-01B-ACTION-RUNTIME-SMOKE.md`。
 
 ## 2026-07-17 二创接口严格收口
 
@@ -168,7 +168,7 @@
 - 当前全仓：85 个测试文件、665 项通过；生产构建和 `git diff --check` 通过。
 - 仍未提交、未推送、未同步 GitHub 或在线版。
 
-检查点：`MILESTONE-08D-EXTENSION-AUDIT-HANDOFF.md`。
+检查点：`milestones/MILESTONE-08D-EXTENSION-AUDIT-HANDOFF.md`。
 
 ## 2026-07-17 副本恢复验收
 
@@ -176,14 +176,14 @@
 - 7 月 15 日副本已在临时目录真实恢复，53 个测试文件、457 项通过，生产构建通过。
 - 当前开发工作树仍未提交、未推送、未同步 GitHub 或在线版。
 
-检查点：`MILESTONE-BACKUP-RESTORE-AUDIT.md`。
+检查点：`milestones/MILESTONE-BACKUP-RESTORE-AUDIT.md`。
 
 ## 2026-07-16 严格审计
 
 - 当前代码全量测试：78 个文件、615 项通过。
 - `npm run build` 通过；仅有既存的大 chunk 警告。
 - 主导演台、二创接口自测页和高斯实验页完成浏览器复验。
-- 严格状态和剩余缺口见 `MILESTONE-FULL-AUDIT-20260716.md`。
+- 严格状态和剩余缺口见 `milestones/MILESTONE-FULL-AUDIT-20260716.md`。
 
 ## 暂不进入主线
 

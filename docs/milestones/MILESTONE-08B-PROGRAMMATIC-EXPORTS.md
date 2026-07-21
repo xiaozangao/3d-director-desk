@@ -45,7 +45,7 @@
 - 最新真实接口结果：VP9 WebM、`2,325,689` bytes、8 秒、1280 x 322；响应宽高与解码宽高完全一致。322 高度来自 iframe 的自动宽画幅。
 - 两帧亮度分别为 `0.044977`、`0.061485`，方差分别为 `0.011779`、`0.018417`，均非黑屏；归一化帧差为 `0.075607`，证明视频不是静止帧。
 - 导出前后时间轴均为 42% / 3.36 秒 / 暂停 / 导演视角 / `cam_1`，完全一致。
-- 浏览器结果截图：`extension-video-smoke-result.png`。
+- 浏览器结果截图：`../assets/smoke-results/extension-video-smoke-result.png`。
 - 内置浏览器嵌套 iframe 仍有无来源 URL 的 MutationObserver 注入层错误；普通页面与 iframe 业务 Canvas 正常，不来自项目代码。
 
 ### 2026-07-17 黑帧修复与最终复验
@@ -56,7 +56,7 @@
 - 5.6 秒后段亮度 `0.079405`、方差 `0.014062`；首段与后段帧差 `0.086529`，证明视频持续变化。
 - 导出前后均为 42% / 3.36 秒 / 暂停 / 导演视角 / `cam_1`，完全恢复。
 - 首帧、当前 42%、尾帧 PNG 也在同一真实 iframe 中连续通过；三帧均非黑，首尾帧差 `0.03642`。
-- 最新证据图：`extension-video-smoke-result-v2.png`、`extension-protocol-smoke-result-v2.png`。
+- 最新证据图：`../assets/smoke-results/extension-video-smoke-result-v2.png`、`../assets/smoke-results/extension-protocol-smoke-result-v2.png`。
 
 ## 尚未完成
 

@@ -29,7 +29,7 @@
 - 套用跟拍后生成 3 个可编辑镜头轨迹点。
 - 页面显示 `跟拍 · v1.0.0`、适用目标、贡献者 `AIGC 耀光`、抖音号 `AIJPDM001` 和许可说明。
 - 页面横向溢出为 0，业务控制台错误为 0；只有浏览器图标请求产生的 404。
-- 截图：`community-presets-smoke-result.png`。
+- 截图：`../assets/smoke-results/community-presets-smoke-result.png`。
 
 ## 贡献资料维护规则
 

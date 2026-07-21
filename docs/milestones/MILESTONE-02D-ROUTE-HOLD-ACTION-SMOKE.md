@@ -11,7 +11,7 @@
 
 ## 独立验收
 
-- 入口：`route-action-smoke.html`。
+- 入口：`../../examples/experiments/route-action-smoke.html`。
 - 真实人物：Camille FBX。
 - 路线：移动到中点 -> 停留挥手 2 秒 -> 恢复走路并继续移动。
 - 视图：导演主视口、成片监看小窗、第一视角、看成片、视频导出。

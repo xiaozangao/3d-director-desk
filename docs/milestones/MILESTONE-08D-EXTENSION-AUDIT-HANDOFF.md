@@ -25,7 +25,7 @@
 - 首尾归一化帧差：`0.03642`。
 - 导出前后均为 42% / 3.36 秒 / 暂停 / 导演视角 / `cam_1`。
 - 插件结果 1 条，`stale: false`。
-- 证据图：`extension-protocol-smoke-result-v2.png`。
+- 证据图：`../assets/smoke-results/extension-protocol-smoke-result-v2.png`。
 
 ### WebM
 
@@ -36,7 +36,7 @@
 - 5.6 秒后段亮度 `0.079405`、方差 `0.014062`。
 - 帧差 `0.086529`，两帧均非黑且视频不是静止画面。
 - 导出后时间轴恢复到原来的 42%。
-- 证据图：`extension-video-smoke-result-v2.png`。
+- 证据图：`../assets/smoke-results/extension-video-smoke-result-v2.png`。
 
 ## 自动验证
 

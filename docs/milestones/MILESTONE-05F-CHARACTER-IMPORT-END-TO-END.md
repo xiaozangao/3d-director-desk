@@ -22,7 +22,7 @@
 - 新增 CesiumMan GLB 独立验收样例，不加入正式模型库。
 - 正式体检器结果：1 个蒙皮网格、19 根主骨骼、1 个可播放动作、`native-only`。
 - 浏览器真实 Canvas：926 x 626；两帧截图字节不同，确认动作实际运行；无业务错误。
-- 证据图：`character-import-smoke-result.png`。
+- 证据图：`../assets/smoke-results/character-import-smoke-result.png`。
 - 真实 Camille 五视图四项验收全部通过：
   - 走路：姿态位移 `0.492874`，跟拍位移 `0.274588`。
   - 跑步：姿态位移 `0.516769`，跟拍位移 `0.208280`。
@@ -31,7 +31,7 @@
 - 每项均覆盖导演主视口、成片监看、第一视角、看成片、视频导出；五个时间点骨骼和跟拍误差均为 0。
 - 四步 UI 定时轮播、跳过和播放位置恢复进入自动回归。
 - 全仓：85 个测试文件、651 项通过；生产构建与 `git diff --check` 通过。
-- 四项动作证据图：`action-import-four-step-result.png`。
+- 四项动作证据图：`../assets/smoke-results/action-import-four-step-result.png`。
 
 ## 许可边界
 

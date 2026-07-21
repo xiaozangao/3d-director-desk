@@ -35,11 +35,11 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: resolve(process.cwd(), "index.html"),
-        actionRuntimeSmoke: resolve(process.cwd(), "action-runtime-smoke.html"),
-        characterImportSmoke: resolve(process.cwd(), "character-import-smoke.html"),
-        panoramaExportSmoke: resolve(process.cwd(), "panorama-export-smoke.html"),
-        routeActionSmoke: resolve(process.cwd(), "route-action-smoke.html"),
-        gaussianSplatExperiment: resolve(process.cwd(), "gaussian-splat-experiment.html"),
+        actionRuntimeSmoke: resolve(process.cwd(), "examples/experiments/action-runtime-smoke.html"),
+        characterImportSmoke: resolve(process.cwd(), "examples/experiments/character-import-smoke.html"),
+        panoramaExportSmoke: resolve(process.cwd(), "examples/experiments/panorama-export-smoke.html"),
+        routeActionSmoke: resolve(process.cwd(), "examples/experiments/route-action-smoke.html"),
+        gaussianSplatExperiment: resolve(process.cwd(), "examples/experiments/gaussian-splat-experiment.html"),
       },
     },
   },

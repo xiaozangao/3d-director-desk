@@ -11,7 +11,7 @@
 
 ## 独立验收入口
 
-- 入口：`action-runtime-smoke.html`
+- 入口：`../../examples/experiments/action-runtime-smoke.html`
 - 真实资产：`camille.fbx` 人物与 `wave.fbx` 动作。
 - 视图：导演主视口、成片监看小窗、第一视角、看成片、视频导出。
 - 时间点：0%、25%、50%、75%、100%。

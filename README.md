@@ -5,7 +5,7 @@
 - 在线体验：<https://xiaozangao.github.io/3d-director-desk/>
 - 源代码：<https://github.com/xiaozangao/3d-director-desk>
 
-![3D 导演台界面示例](images/06.png)
+![3D 导演台界面示例](docs/assets/readme/06.png)
 
 ## 主要功能
 
@@ -272,6 +272,6 @@ https://YOUR_GITHUB_NAME.github.io/3d-director-desk/
 
 - 上游仓库：<https://github.com/jiguang132/storyai-3d-director-desk>
 - 初始同步提交：`8c8bd36`
-- 详细改造说明：[UPSTREAM.md](UPSTREAM.md)
+- 详细改造说明：[UPSTREAM.md](docs/UPSTREAM.md)
 
 运行时依赖 React、Three.js、React Three Fiber、Drei、Zustand、Lucide 等开源软件，各依赖的具体版本与许可证以 `package-lock.json` 及对应上游项目为准。生活模型由代码中的基础几何体生成。UE 人偶模型来源及许可证见 `public/models/ue-mannequin-retopology.license.txt`，发布或再分发时请同时保留该说明文件。

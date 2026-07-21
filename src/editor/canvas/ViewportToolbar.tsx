@@ -51,7 +51,6 @@ import {
 } from "../schema/viewportAspectRatio";
 import {
   DIRECTOR_CHARACTER_BONE_PART_OPTIONS,
-  isCompleteDirectorCharacterBoneMap,
 } from "../schema/semanticBody";
 import { BODY_TYPE_OPTIONS, type CharacterBodyType } from "../runtime/mannequin/bodyTypes";
 import { GEOMETRY_PRIMITIVE_OPTIONS, type GeometryPrimitiveType } from "../schema/directorProject";
@@ -61,6 +60,9 @@ import {
   type CrowdCharactersInput,
   type TransformMode,
 } from "../store/directorStore";
+import { canImportCharacterFromInspection } from "./characterImportPolicy";
+
+export { canImportCharacterFromInspection } from "./characterImportPolicy";
 
 type ToolbarAction = {
   label: string;
@@ -87,15 +89,6 @@ const CHARACTER_IMPORT_STATUS_LABELS = {
   "manual-mapping": "需要手动映射",
   "static-only": "仅静态使用",
 } as const;
-
-export function canImportCharacterFromInspection(
-  report: CharacterAssetInspection,
-  boneMap: CharacterAssetInspection["boneMap"] = report.boneMap
-) {
-  if (report.readiness === "static-only") return false;
-  if (report.readiness === "manual-mapping") return isCompleteDirectorCharacterBoneMap(boneMap);
-  return true;
-}
 
 function clampCrowdGridSize(value: number) {
   if (!Number.isFinite(value)) return MIN_CROWD_GRID_SIZE;
