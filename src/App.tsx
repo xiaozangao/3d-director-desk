@@ -6,8 +6,8 @@ import { DirectorCanvas } from "./editor/canvas/DirectorCanvas";
 import { ViewportSensitivitySettings } from "./editor/canvas/ViewportSensitivitySettings";
 import {
   DIRECTOR_DESK_SESSION_OPENED_EVENT,
-  getDirectorDeskHostOrigin,
   initDirectorDeskHostBridge,
+  postDirectorDeskMessageToHost,
 } from "./editor/io/hostBridge";
 import { useDirectorStore } from "./editor/store/directorStore";
 import {
@@ -249,7 +249,7 @@ export default function App() {
       });
     }
 
-    window.parent?.postMessage({ type: "storyai:director-desk-ready" }, getDirectorDeskHostOrigin());
+    postDirectorDeskMessageToHost({ type: "storyai:director-desk-ready" });
   }, []);
 
   useEffect(() => {
@@ -283,7 +283,7 @@ export default function App() {
   }
 
   function handleClose() {
-    window.parent?.postMessage({ type: "storyai:director-desk-close" }, getDirectorDeskHostOrigin());
+    postDirectorDeskMessageToHost({ type: "storyai:director-desk-close" });
   }
 
   useEffect(() => {

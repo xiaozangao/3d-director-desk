@@ -589,3 +589,223 @@
     overflow-x: auto;
   }
 }
+
+/* Compact floating transport used by the editor chrome refresh. */
+.app-shell .object-motion-transport {
+  --object-motion-accent-rgb: 110 181 245;
+  bottom: 16px;
+  border: 0;
+  border-radius: 16px;
+  background: rgb(var(--panel-rgb));
+  box-shadow: none;
+  backdrop-filter: blur(22px) saturate(116%);
+  -webkit-backdrop-filter: blur(22px) saturate(116%);
+}
+
+.app-shell .object-motion-transport--full {
+  left: calc((100% + var(--left-sidebar-width) - var(--right-sidebar-width)) / 2);
+  grid-template-columns: 96px minmax(230px, 1fr) minmax(92px, auto);
+  width: min(540px, calc(100% - var(--left-sidebar-width) - var(--right-sidebar-width) - 76px));
+  min-height: 48px;
+  gap: 6px;
+  padding: 6px 10px;
+}
+
+.app-shell .object-motion-transport__subject-icon,
+.app-shell .object-motion-transport__time,
+.app-shell .object-motion-transport__duration-control input,
+.app-shell .object-motion-transport__record,
+.app-shell .object-motion-transport__delete,
+.app-shell .object-motion-transport__keyframes {
+  border-radius: 8px;
+}
+
+.app-shell .object-motion-transport__play {
+  width: 28px;
+  height: 28px;
+  color: #07111d;
+  background: rgb(var(--object-motion-accent-rgb));
+}
+
+.app-shell .object-motion-transport__subject {
+  gap: 6px;
+}
+
+.app-shell .object-motion-transport__subject-icon {
+  width: 28px;
+  height: 28px;
+}
+
+.app-shell .object-motion-transport__subject-copy small {
+  display: none;
+}
+
+.app-shell .object-motion-transport__subject-copy strong {
+  max-width: 60px;
+  font-size: 10px;
+  line-height: 14px;
+}
+
+.app-shell .object-motion-transport__player {
+  gap: 5px;
+}
+
+.app-shell .object-motion-transport__icon-button {
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+}
+
+.app-shell .object-motion-transport__time {
+  min-width: 52px;
+  height: 26px;
+  padding: 0 6px;
+  font-size: 13px;
+}
+
+.app-shell .object-motion-transport__scrubber {
+  min-width: 72px;
+  flex-basis: 88px;
+}
+
+.app-shell .object-motion-transport__duration-control {
+  gap: 0;
+}
+
+.app-shell .object-motion-transport__duration-control > span {
+  display: none;
+}
+
+.app-shell .object-motion-transport__duration-control input {
+  width: 34px;
+  height: 24px;
+  padding: 0 3px;
+  border: 0;
+  font-size: 9px;
+}
+
+.app-shell .object-motion-transport__editor {
+  grid-column: 3;
+  grid-row: 1;
+  justify-content: flex-end;
+  gap: 4px;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.app-shell .object-motion-transport__record {
+  width: 28px;
+  height: 28px;
+  min-height: 28px;
+  padding: 0;
+  color: #b9dcfa;
+  background: rgb(var(--object-motion-accent-rgb) / 0.1);
+}
+
+.app-shell .object-motion-transport__record > span,
+.app-shell .object-motion-transport__delete > span {
+  display: none;
+}
+
+.app-shell .object-motion-transport__delete {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+}
+
+.app-shell .object-motion-transport__keyframes {
+  min-width: 28px;
+  max-width: 72px;
+  padding: 0;
+}
+
+.app-shell .object-motion-transport__keyframes button {
+  width: 22px;
+  height: 22px;
+}
+
+.app-shell .object-motion-transport__keyframes > small {
+  display: none;
+}
+
+.app-shell .object-motion-transport__route-hint {
+  max-width: 72px;
+  overflow: hidden;
+  font-size: 8px;
+  line-height: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-shell .object-motion-transport__editor:has(.object-motion-transport__route-hint) {
+  display: none;
+}
+
+.app-shell .object-motion-transport--full:has(.object-motion-transport__route-hint) {
+  grid-template-columns: 96px minmax(230px, 1fr);
+  width: min(420px, calc(100% - var(--left-sidebar-width) - var(--right-sidebar-width) - 76px));
+}
+
+.app-shell .object-motion-transport__tracks {
+  gap: 2px;
+  padding: 3px 2px 0;
+}
+
+.app-shell .object-motion-transport__tracks-heading {
+  display: none;
+}
+
+.app-shell .object-motion-transport__track {
+  grid-template-columns: 68px minmax(0, 1fr);
+  min-height: 16px;
+}
+
+.app-shell .object-motion-transport__track-label small {
+  display: none;
+}
+
+.app-shell .director-shell.is-motion-studio-open .object-motion-transport--full {
+  left: calc((100% + var(--left-sidebar-width) - var(--motion-studio-width)) / 2);
+  width: min(540px, calc(100% - var(--left-sidebar-width) - var(--motion-studio-width) - 48px));
+}
+
+@media (max-width: 920px) {
+  .app-shell .object-motion-transport--full {
+    left: calc((100% + var(--left-sidebar-width)) / 2);
+    grid-template-columns: minmax(0, 1fr);
+    width: min(560px, calc(100% - var(--left-sidebar-width) - 48px));
+  }
+
+  .app-shell .object-motion-transport--full:has(.object-motion-transport__route-hint) {
+    grid-template-columns: minmax(0, 1fr);
+    width: min(420px, calc(100% - var(--left-sidebar-width) - 48px));
+  }
+
+  .app-shell .object-motion-transport__subject {
+    display: none;
+  }
+
+  .app-shell .object-motion-transport__player {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .app-shell .object-motion-transport__editor {
+    grid-column: 1;
+    grid-row: 2;
+    justify-content: center;
+    padding-top: 4px;
+    border-top: 1px solid rgb(var(--border-rgb) / 0.24);
+  }
+}
+
+@media (max-width: 600px) {
+  .app-shell .object-motion-transport--full,
+  .app-shell .object-motion-transport--full:has(.object-motion-transport__route-hint),
+  .app-shell .director-shell.is-motion-studio-open .object-motion-transport--full,
+  .app-shell .director-shell.is-sidebars-collapsed .object-motion-transport--full {
+    left: 50%;
+    width: calc(100% - 16px);
+    border-radius: 16px;
+  }
+}
