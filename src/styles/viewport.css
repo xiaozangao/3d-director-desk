@@ -416,6 +416,8 @@
   backdrop-filter: blur(32px);
   -webkit-backdrop-filter: blur(32px);
   transform: translateX(-50%);
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .viewport-toolbar-menu button,
@@ -473,6 +475,8 @@
   box-shadow: var(--ui-shadow-panel);
   backdrop-filter: blur(32px);
   -webkit-backdrop-filter: blur(32px);
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .viewport-toolbar-crowd-panel {
@@ -488,6 +492,8 @@
   box-shadow: var(--ui-shadow-panel);
   backdrop-filter: blur(32px);
   -webkit-backdrop-filter: blur(32px);
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .viewport-toolbar-crowd-panel-header {
@@ -868,7 +874,7 @@
   left: 50%;
   bottom: calc(40px + var(--viewport-toolbar-height, 46px) + 10px);
   z-index: 34;
-  width: 340px;
+  width: min(340px, calc(100% - 16px));
   height: 206px;
   padding: 16px;
   border: 1px solid rgb(var(--border-rgb) / 0.35);
@@ -879,6 +885,8 @@
   backdrop-filter: blur(32px);
   -webkit-backdrop-filter: blur(32px);
   transform: translateX(-50%);
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .viewport-aspect-panel-title {

@@ -235,7 +235,7 @@ it("renders the model library panel with the same frosted glass background treat
 it("renders the viewport aspect ratio picker as a horizontal floating panel", () => {
   const css = readStyleBundle();
 
-  expect(css).toMatch(/\.viewport-aspect-panel\s*\{[\s\S]*?position:\s*absolute;[\s\S]*?bottom:\s*calc\(40px \+ var\(--viewport-toolbar-height,\s*46px\) \+ 10px\);[\s\S]*?width:\s*340px;[\s\S]*?height:\s*206px;[\s\S]*?border:\s*1px solid rgb\(var\(--border-rgb\) \/ 0\.35\);[\s\S]*?border-radius:\s*22px;[\s\S]*?background:\s*rgb\(var\(--panel-rgb\) \/ 0\.9\);[\s\S]*?backdrop-filter:\s*blur\(32px\);[\s\S]*?-webkit-backdrop-filter:\s*blur\(32px\);/);
+  expect(css).toMatch(/\.viewport-aspect-panel\s*\{[\s\S]*?position:\s*absolute;[\s\S]*?bottom:\s*calc\(40px \+ var\(--viewport-toolbar-height,\s*46px\) \+ 10px\);[\s\S]*?width:\s*min\(340px,\s*calc\(100% - 16px\)\);[\s\S]*?height:\s*206px;[\s\S]*?border:\s*1px solid rgb\(var\(--border-rgb\) \/ 0\.35\);[\s\S]*?border-radius:\s*22px;[\s\S]*?background:\s*rgb\(var\(--panel-rgb\) \/ 0\.9\);[\s\S]*?backdrop-filter:\s*blur\(32px\);[\s\S]*?-webkit-backdrop-filter:\s*blur\(32px\);/);
   expect(css).toMatch(/\.viewport-aspect-panel-title\s*\{[\s\S]*?font-size:\s*12px;[\s\S]*?line-height:\s*17px;/);
   expect(css).toMatch(/\.viewport-aspect-panel-grid\s*\{[\s\S]*?grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\);[\s\S]*?gap:\s*8px;/);
   expect(css).toMatch(/\.viewport-aspect-option\s*\{[\s\S]*?gap:\s*8px;[\s\S]*?height:\s*70px;[\s\S]*?border-radius:\s*18px;[\s\S]*?background:\s*rgb\(var\(--surface-rgb\) \/ 0\.35\);/);
@@ -349,6 +349,7 @@ it("keeps the viewport toolbar 40px below the framed viewport area", () => {
   const css = readStyleBundle();
 
   expect(css).toMatch(/\.viewport-toolbar\s*\{[\s\S]*?bottom:\s*40px;/);
+  expect(css).toMatch(/@media \(max-width:\s*600px\)[\s\S]*?\.app-shell \.viewport-toolbar\s*\{[\s\S]*?width:\s*calc\(100% - 16px\);[\s\S]*?height:\s*auto;[\s\S]*?flex-wrap:\s*wrap;/);
 });
 
 it("keeps the demo usable in narrower in-app browser widths", () => {

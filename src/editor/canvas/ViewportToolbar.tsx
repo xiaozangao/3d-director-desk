@@ -69,11 +69,18 @@ type ToolbarAction = {
   icon: LucideIcon;
   mode?: TransformMode;
   pressed?: boolean;
+  buttonRef?: MutableRefObject<HTMLButtonElement | null>;
   onClick: () => void;
 };
 
-const DEFAULT_VIEWPORT_TOOLBAR_HEIGHT = 46;
-const VIEWPORT_TOOLBAR_BOTTOM_OFFSET = 40;
+const FLOATING_PANEL_GAP = 8;
+const FLOATING_PANEL_MARGIN = 8;
+const MIN_FLOATING_PANEL_HEIGHT = 80;
+const CHARACTER_MENU_WIDTH = 132;
+const GEOMETRY_MENU_WIDTH = 112;
+const CROWD_PANEL_WIDTH = 260;
+const MODEL_LIBRARY_PANEL_WIDTH = 500;
+const ASPECT_RATIO_PANEL_WIDTH = 340;
 const DEFAULT_CROWD_ROWS = 3;
 const DEFAULT_CROWD_COLUMNS = 3;
 const DEFAULT_CROWD_SPACING = 1.2;
@@ -119,6 +126,7 @@ export function ViewportToolbar({
   const geometryTriggerRef = useRef<HTMLButtonElement | null>(null);
   const crowdTriggerRef = useRef<HTMLButtonElement | null>(null);
   const modelLibraryTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const aspectRatioTriggerRef = useRef<HTMLButtonElement | null>(null);
   const characterMenuRef = useRef<HTMLDivElement | null>(null);
   const geometryMenuRef = useRef<HTMLDivElement | null>(null);
   const crowdPanelRef = useRef<HTMLDivElement | null>(null);
@@ -144,11 +152,11 @@ export function ViewportToolbar({
     stepIndex: number;
   } | null>(null);
   const characterImportPlaybackRestoreRef = useRef<{ playing: boolean; progress: number } | null>(null);
-  const [toolbarHeight, setToolbarHeight] = useState(DEFAULT_VIEWPORT_TOOLBAR_HEIGHT);
   const [characterMenuStyle, setCharacterMenuStyle] = useState<CSSProperties>({});
   const [geometryMenuStyle, setGeometryMenuStyle] = useState<CSSProperties>({});
   const [crowdPanelStyle, setCrowdPanelStyle] = useState<CSSProperties>({});
   const [modelLibraryPanelStyle, setModelLibraryPanelStyle] = useState<CSSProperties>({});
+  const [aspectRatioPanelStyle, setAspectRatioPanelStyle] = useState<CSSProperties>({});
   const [crowdBodyType, setCrowdBodyType] = useState<CharacterBodyType>(BODY_TYPE_OPTIONS[0]?.bodyType ?? "mannequin");
   const [crowdRows, setCrowdRows] = useState(String(DEFAULT_CROWD_ROWS));
   const [crowdColumns, setCrowdColumns] = useState(String(DEFAULT_CROWD_COLUMNS));
@@ -260,70 +268,133 @@ export function ViewportToolbar({
   }, [aspectRatioPanelOpen, characterMenuOpen, crowdPanelOpen, modelLibraryOpen]);
 
   useLayoutEffect(() => {
-    const element = toolbarRef.current;
-    if (!element) return;
-
-    const updateHeight = () => {
-      const nextHeight = Math.max(element.offsetHeight, DEFAULT_VIEWPORT_TOOLBAR_HEIGHT);
-      setToolbarHeight((currentHeight) => (currentHeight === nextHeight ? currentHeight : nextHeight));
-    };
-
-    updateHeight();
-
-    if (typeof ResizeObserver === "undefined") {
-      window.addEventListener("resize", updateHeight);
-      return () => {
-        window.removeEventListener("resize", updateHeight);
-      };
-    }
-
-    const resizeObserver = new ResizeObserver(updateHeight);
-    resizeObserver.observe(element);
-    window.addEventListener("resize", updateHeight);
-
-    return () => {
-      resizeObserver.disconnect();
-      window.removeEventListener("resize", updateHeight);
-    };
-  }, []);
-
-  useLayoutEffect(() => {
     const toolbarElement = toolbarRef.current;
     const frameElement = toolbarElement?.parentElement;
     if (!toolbarElement || !frameElement) return;
 
     const updateFloatingPositions = () => {
       const frameRect = frameElement.getBoundingClientRect();
+      const toolbarRect = toolbarElement.getBoundingClientRect();
+      const getCenteredPanelLeft = (
+        anchorCenter: number,
+        panel: HTMLElement | null,
+        fallbackWidth: number
+      ) => {
+        const panelWidth = Math.min(
+          panel?.offsetWidth || fallbackWidth,
+          Math.max(0, frameRect.width - FLOATING_PANEL_MARGIN * 2)
+        );
+        const halfWidth = panelWidth / 2;
+        const minimum = FLOATING_PANEL_MARGIN + halfWidth;
+        const maximum = Math.max(minimum, frameRect.width - FLOATING_PANEL_MARGIN - halfWidth);
+        return Math.min(maximum, Math.max(minimum, anchorCenter - frameRect.left));
+      };
+      const getSidePanelLeft = (
+        triggerRect: DOMRect,
+        panel: HTMLElement | null,
+        fallbackWidth: number
+      ) => {
+        const panelWidth = Math.min(
+          panel?.offsetWidth || fallbackWidth,
+          Math.max(0, frameRect.width - FLOATING_PANEL_MARGIN * 2)
+        );
+        const rightPosition = triggerRect.right - frameRect.left + FLOATING_PANEL_GAP;
+        const leftPosition = triggerRect.left - frameRect.left - panelWidth - FLOATING_PANEL_GAP;
+        const preferred = rightPosition + panelWidth <= frameRect.width - FLOATING_PANEL_MARGIN
+          ? rightPosition
+          : leftPosition;
+        return Math.min(
+          Math.max(FLOATING_PANEL_MARGIN, frameRect.width - panelWidth - FLOATING_PANEL_MARGIN),
+          Math.max(FLOATING_PANEL_MARGIN, preferred)
+        );
+      };
 
       if (characterMenuOpen && characterTriggerRef.current) {
         const triggerRect = characterTriggerRef.current.getBoundingClientRect();
+        const availableHeight = Math.max(
+          MIN_FLOATING_PANEL_HEIGHT,
+          frameRect.bottom - toolbarRect.bottom - FLOATING_PANEL_GAP - FLOATING_PANEL_MARGIN
+        );
         setCharacterMenuStyle({
-          left: `${triggerRect.left - frameRect.left + triggerRect.width / 2}px`,
-          bottom: `${frameRect.bottom - triggerRect.top + 8}px`,
+          left: `${getCenteredPanelLeft(
+            triggerRect.left + triggerRect.width / 2,
+            characterMenuRef.current,
+            CHARACTER_MENU_WIDTH
+          )}px`,
+          top: `${toolbarRect.bottom - frameRect.top + FLOATING_PANEL_GAP}px`,
+          bottom: "auto",
+          maxHeight: `${availableHeight}px`,
         });
       }
 
       if (geometryMenuOpen && geometryTriggerRef.current) {
         const triggerRect = geometryTriggerRef.current.getBoundingClientRect();
+        const availableHeight = Math.max(
+          MIN_FLOATING_PANEL_HEIGHT,
+          frameRect.bottom - triggerRect.top - FLOATING_PANEL_MARGIN
+        );
         setGeometryMenuStyle({
-          left: `${triggerRect.right - frameRect.left + 8}px`,
-          bottom: `${frameRect.bottom - triggerRect.bottom}px`,
+          left: `${getSidePanelLeft(
+            triggerRect,
+            geometryMenuRef.current,
+            GEOMETRY_MENU_WIDTH
+          )}px`,
+          top: `${triggerRect.top - frameRect.top}px`,
+          bottom: "auto",
+          maxHeight: `${availableHeight}px`,
         });
       }
 
       if (crowdPanelOpen && crowdTriggerRef.current) {
         const triggerRect = crowdTriggerRef.current.getBoundingClientRect();
+        const availableHeight = Math.max(
+          MIN_FLOATING_PANEL_HEIGHT,
+          frameRect.bottom - triggerRect.top - FLOATING_PANEL_MARGIN
+        );
         setCrowdPanelStyle({
-          left: `${triggerRect.right - frameRect.left + 8}px`,
-          bottom: `${frameRect.bottom - triggerRect.bottom}px`,
+          left: `${getSidePanelLeft(
+            triggerRect,
+            crowdPanelRef.current,
+            CROWD_PANEL_WIDTH
+          )}px`,
+          top: `${triggerRect.top - frameRect.top}px`,
+          bottom: "auto",
+          maxHeight: `${availableHeight}px`,
         });
       }
 
       if (modelLibraryOpen) {
-        const toolbarRect = toolbarElement.getBoundingClientRect();
+        const availableHeight = Math.max(
+          MIN_FLOATING_PANEL_HEIGHT,
+          frameRect.bottom - toolbarRect.bottom - 10 - FLOATING_PANEL_MARGIN
+        );
         setModelLibraryPanelStyle({
-          left: `${toolbarRect.left - frameRect.left + toolbarRect.width / 2}px`,
-          bottom: `${frameRect.bottom - toolbarRect.top + 10}px`,
+          left: `${getCenteredPanelLeft(
+            toolbarRect.left + toolbarRect.width / 2,
+            modelLibraryPanelRef.current,
+            MODEL_LIBRARY_PANEL_WIDTH
+          )}px`,
+          top: `${toolbarRect.bottom - frameRect.top + 10}px`,
+          bottom: "auto",
+          maxHeight: `${availableHeight}px`,
+        });
+      }
+
+      if (aspectRatioPanelOpen && aspectRatioTriggerRef.current) {
+        const triggerRect = aspectRatioTriggerRef.current.getBoundingClientRect();
+        const availableHeight = Math.max(
+          MIN_FLOATING_PANEL_HEIGHT,
+          frameRect.bottom - toolbarRect.bottom - FLOATING_PANEL_GAP - FLOATING_PANEL_MARGIN
+        );
+        setAspectRatioPanelStyle({
+          left: `${getCenteredPanelLeft(
+            triggerRect.left + triggerRect.width / 2,
+            aspectRatioPanelRef.current,
+            ASPECT_RATIO_PANEL_WIDTH
+          )}px`,
+          top: `${toolbarRect.bottom - frameRect.top + FLOATING_PANEL_GAP}px`,
+          bottom: "auto",
+          maxHeight: `${availableHeight}px`,
         });
       }
     };
@@ -352,13 +423,16 @@ export function ViewportToolbar({
     if (modelLibraryTriggerRef.current) {
       resizeObserver.observe(modelLibraryTriggerRef.current);
     }
+    if (aspectRatioTriggerRef.current) {
+      resizeObserver.observe(aspectRatioTriggerRef.current);
+    }
     window.addEventListener("resize", updateFloatingPositions);
 
     return () => {
       resizeObserver.disconnect();
       window.removeEventListener("resize", updateFloatingPositions);
     };
-  }, [characterMenuOpen, crowdPanelOpen, geometryMenuOpen, modelLibraryOpen]);
+  }, [aspectRatioPanelOpen, characterMenuOpen, crowdPanelOpen, geometryMenuOpen, modelLibraryOpen]);
 
   async function handleLocalModelChange(
     event: ChangeEvent<HTMLInputElement>,
@@ -640,7 +714,12 @@ export function ViewportToolbar({
     },
     { label: "模型库", icon: Boxes, onClick: toggleModelLibrary },
     { label: "添加机位", icon: Video, onClick: addCameraFromViewport },
-    { label: "选择画幅比例", icon: Ratio, onClick: toggleAspectRatioPanel },
+    {
+      label: "选择画幅比例",
+      icon: Ratio,
+      buttonRef: aspectRatioTriggerRef,
+      onClick: toggleAspectRatioPanel,
+    },
     { label: "当前视角截图", icon: Camera, onClick: () => void handleCapture("current") },
     { label: "四方位截图", icon: Grid2X2, onClick: () => void handleCapture("four") },
     { label: "十二方位截图", icon: Grid3X3, onClick: () => void handleCapture("twelve") },
@@ -657,6 +736,7 @@ export function ViewportToolbar({
         aria-label={action.label}
         aria-pressed={action.mode || action.pressed !== undefined ? active : undefined}
         className={`ui-icon-button viewport-toolbar-button${active ? " is-active" : ""}`}
+        ref={action.buttonRef}
         type="button"
         onClick={action.onClick}
       >
@@ -680,10 +760,6 @@ export function ViewportToolbar({
       toolbarContainerRef.current = element;
     }
   }
-
-  const aspectRatioPanelStyle = {
-    "--viewport-toolbar-height": `${toolbarHeight}px`,
-  } as CSSProperties;
 
   return (
     <>

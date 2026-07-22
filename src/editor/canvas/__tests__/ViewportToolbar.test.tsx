@@ -1084,6 +1084,90 @@ it("opens the aspect ratio panel from the viewport capsule with the supported pr
   });
 });
 
+it("positions toolbar panels below the top toolbar instead of outside the viewport", async () => {
+  const user = userEvent.setup();
+  render(
+    <div data-testid="viewport-frame">
+      <ViewportToolbar />
+    </div>
+  );
+
+  const frame = screen.getByTestId("viewport-frame");
+  const toolbar = screen.getByRole("group", { name: "3D视口快捷工具" });
+  const characterTrigger = screen.getByRole("button", { name: "添加角色" });
+  const aspectTrigger = screen.getByRole("button", { name: "选择画幅比例" });
+
+  vi.spyOn(frame, "getBoundingClientRect").mockReturnValue({
+    left: 100,
+    top: 50,
+    right: 1100,
+    bottom: 650,
+    width: 1000,
+    height: 600,
+    x: 100,
+    y: 50,
+    toJSON: () => ({}),
+  });
+  vi.spyOn(toolbar, "getBoundingClientRect").mockReturnValue({
+    left: 300,
+    top: 100,
+    right: 800,
+    bottom: 148,
+    width: 500,
+    height: 48,
+    x: 300,
+    y: 100,
+    toJSON: () => ({}),
+  });
+  vi.spyOn(characterTrigger, "getBoundingClientRect").mockReturnValue({
+    left: 400,
+    top: 108,
+    right: 432,
+    bottom: 140,
+    width: 32,
+    height: 32,
+    x: 400,
+    y: 108,
+    toJSON: () => ({}),
+  });
+  vi.spyOn(aspectTrigger, "getBoundingClientRect").mockReturnValue({
+    left: 600,
+    top: 108,
+    right: 632,
+    bottom: 140,
+    width: 32,
+    height: 32,
+    x: 600,
+    y: 108,
+    toJSON: () => ({}),
+  });
+
+  await user.click(characterTrigger);
+  await waitFor(() => {
+    expect(screen.getByRole("menu", { name: "选择角色体型" })).toHaveStyle({
+      top: "106px",
+      bottom: "auto",
+    });
+  });
+
+  await user.click(screen.getByRole("button", { name: "模型库" }));
+  await waitFor(() => {
+    expect(screen.getByRole("dialog", { name: "模型库" })).toHaveStyle({
+      top: "108px",
+      bottom: "auto",
+      maxHeight: "484px",
+    });
+  });
+
+  await user.click(aspectTrigger);
+  await waitFor(() => {
+    expect(screen.getByRole("dialog", { name: "比例" })).toHaveStyle({
+      top: "106px",
+      bottom: "auto",
+    });
+  });
+});
+
 it("updates the viewport aspect ratio from the ratio panel", async () => {
   const user = userEvent.setup();
   render(<ViewportToolbar />);

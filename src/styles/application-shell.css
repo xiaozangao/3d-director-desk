@@ -1854,6 +1854,9 @@
     left: 50%;
     top: 60px;
     bottom: auto !important;
+    width: calc(100% - 16px);
     max-width: calc(100% - 16px);
+    height: auto;
+    flex-wrap: wrap;
   }
 }
