@@ -4,10 +4,14 @@ import { getStoredAssetKey, localAssetBinaryStorage } from "./localAssetBinarySt
 export function useResolvedLocalAssetUrl(asset: { url: string; storageKey?: string } | undefined) {
   const storageKey = asset?.storageKey ?? (asset ? getStoredAssetKey(asset.url) : null);
   const directUrl = asset && !storageKey ? asset.url : undefined;
-  const [resolvedUrl, setResolvedUrl] = useState<string | undefined>(directUrl);
+  const assetKey = storageKey ?? directUrl ?? null;
+  const [resolved, setResolved] = useState<{ key: string | null; url?: string }>(() => ({
+    key: assetKey,
+    url: directUrl,
+  }));
 
   useEffect(() => {
-    setResolvedUrl(directUrl);
+    setResolved({ key: assetKey, url: directUrl });
     if (!storageKey) return;
 
     let disposed = false;
@@ -16,17 +20,19 @@ export function useResolvedLocalAssetUrl(asset: { url: string; storageKey?: stri
       .then((record) => {
         if (!record || disposed) return;
         objectUrl = URL.createObjectURL(record.blob);
-        setResolvedUrl(objectUrl);
+        setResolved({ key: assetKey, url: objectUrl });
       })
       .catch(() => {
-        if (!disposed) setResolvedUrl(undefined);
+        if (!disposed) setResolved({ key: assetKey, url: undefined });
       });
 
     return () => {
       disposed = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [directUrl, storageKey]);
+  }, [assetKey, directUrl, storageKey]);
 
-  return resolvedUrl;
+  return resolved && typeof resolved === "object" && resolved.key === assetKey
+    ? resolved.url
+    : directUrl;
 }

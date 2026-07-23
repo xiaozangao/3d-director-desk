@@ -3,6 +3,7 @@ import type {
   CharacterImportReadiness,
   CharacterRigProfile,
   DirectorAnimationAssetRef,
+  DirectorAnimationFormat,
   DirectorAnimationClipRef,
   DirectorAssetKind,
   DirectorAssetRef,
@@ -50,7 +51,7 @@ export interface ImportedAnimationAssetInput {
   name: string;
   fileName: string;
   url: string;
-  modelFormat: "fbx" | "glb";
+  modelFormat: DirectorAnimationFormat;
   storageKey?: string;
   byteLength?: number;
   rigProfile: CharacterRigProfile;

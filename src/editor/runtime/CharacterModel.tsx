@@ -57,6 +57,9 @@ export function CharacterModel({
   runtimeMotion,
   boneMap,
 }: CharacterModelProps) {
+  const runtimeKey = externalAnimation
+    ? `external:${externalAnimation.url}:${externalAnimation.format}:${externalAnimation.clipName}:${externalAnimation.rigProfile ?? ""}`
+    : `preset:${actionPresetId ?? "none"}`;
   const fallback = (
     <PrimitiveMannequin
       bodyType={bodyType}
@@ -68,7 +71,7 @@ export function CharacterModel({
 
   if (assetUrl && rigState?.rigType === "mixamo") {
     return (
-      <CharacterModelBoundary fallback={fallback}>
+      <CharacterModelBoundary key={runtimeKey} fallback={fallback}>
         <MixamoCharacterModel
           actionPresetId={actionPresetId}
           animationTimeSeconds={animationTimeSeconds}
@@ -91,10 +94,12 @@ export function CharacterModel({
   }
 
   return (
-    <CharacterModelBoundary fallback={fallback}>
+    <CharacterModelBoundary key={runtimeKey} fallback={fallback}>
       <UE4MannequinModel
+        animationTimeSeconds={animationTimeSeconds}
         bodyType={bodyType}
         color={color}
+        externalAnimation={externalAnimation}
         onLabelAnchorYChange={onLabelAnchorYChange}
         rigState={rigState}
         runtimeMotion={runtimeMotion}

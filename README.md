@@ -243,6 +243,12 @@ https://YOUR_GITHUB_NAME.github.io/3d-director-desk/
 
 以后只需把修改推送到 `main`，在线体验会自动更新。由于 GitHub Pages 必须使用 HTTPS，建议只从正式 Pages 地址分享，不要分享 Actions 中的临时构建链接。
 
+## Kimodo 本地动作生成
+
+可选的 Kimodo 服务提供持久任务队列、阶段进度、取消、自动重试、服务重启恢复和 BVH 动作导入。服务没有启动时不影响导演台现有功能。安装与运维见 [`docs/KIMODO.md`](docs/KIMODO.md)。
+
+Windows 用户安装 Docker Desktop 并获得所需模型权限后，可直接双击仓库根目录的 `install-kimodo.cmd`。安装器会检查 Docker/GPU 环境、安全提示输入 Hugging Face Token，并完成镜像构建、启动与健康验证。
+
 ## iframe 嵌入
 
 项目可作为独立页面嵌入其他网页。通过 `instanceId` 隔离工程，通过 `hostOrigin` 指定宿主来源：

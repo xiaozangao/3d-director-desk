@@ -18,6 +18,8 @@ it("allows a fully mapped external rig to use a recognizable external action pro
   expect(areAnimationProfilesCompatible("generic-humanoid", "cc-base", true)).toBe(true);
   expect(areAnimationProfilesCompatible("generic-humanoid", "unknown", true)).toBe(false);
   expect(areAnimationProfilesCompatible("bip", "mixamo", false)).toBe(false);
+  expect(areAnimationProfilesCompatible("bip", "generic-humanoid", false)).toBe(true);
+  expect(areAnimationProfilesCompatible("unknown", "generic-humanoid", false)).toBe(false);
 });
 
 it("renders the approved role property order", () => {
@@ -214,7 +216,7 @@ it("blocks humanoid presets for a library character that still needs bone mappin
   expect(screen.queryByRole("button", { name: "T型" })).not.toBeInTheDocument();
 });
 
-it("plays and removes a compatible imported character action", async () => {
+it("plays and removes a generic humanoid action on the built-in BIP character", async () => {
   const user = userEvent.setup();
   const state = useDirectorStore.getState();
   useDirectorStore.setState({
@@ -227,7 +229,7 @@ it("plays and removes a compatible imported character action", async () => {
         url: "director-asset://local/walk",
         modelFormat: "fbx",
         storageKey: "walk",
-        rigProfile: "bip",
+        rigProfile: "generic-humanoid",
         clips: [{ id: "clip_1", name: "Walk", duration: 1.25, trackCount: 48 }],
       }],
     },

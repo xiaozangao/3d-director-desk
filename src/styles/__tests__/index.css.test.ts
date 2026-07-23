@@ -160,6 +160,9 @@ it("matches the provided right inspector layout dimensions and field styling", (
   expect(css).toMatch(/\.scene-switch-row\s*\.inspector-toggle-row\s*span\s*\{[\s\S]*?color:\s*rgb\(var\(--text-muted-rgb\)\);[\s\S]*?white-space:\s*nowrap;/);
   expect(css).toMatch(/\.character-inspector\s*\.right-inspector-content,\s*[\r\n]+\s*\.character-inspector\s*\.right-inspector-content\s*>\s*\.inspector-section\s*\{[\s\S]*?width:\s*var\(--right-sidebar-content-width\);[\s\S]*?max-width:\s*100%;/);
   expect(css).toMatch(/\.character-inspector\s*\{[\s\S]*?width:\s*var\(--right-sidebar-width\);[\s\S]*?flex:\s*0 0 auto;[\s\S]*?overflow-x:\s*hidden;/);
+  expect(css).toMatch(/\.kimodo-motion-header-actions\s*\{[\s\S]*?position:\s*relative;[\s\S]*?z-index:\s*35;/);
+  expect(css).toMatch(/\.kimodo-service-settings\s*\{[\s\S]*?position:\s*static;/);
+  expect(css).toMatch(/\.kimodo-service-settings-popover\s*\{[\s\S]*?right:\s*0;[\s\S]*?width:\s*var\(--right-sidebar-content-width\);/);
 }
 );
 
@@ -300,12 +303,12 @@ it("renders viewport object labels without an outline stroke", () => {
   expect(labelRule).not.toMatch(/(^|\s)border:/);
 });
 
-it("lays out character pose presets as the requested 4 by 5 compact grid", () => {
+it("lays out character pose presets as a responsive compact grid", () => {
   const css = readStyleBundle();
 
   expect(css).toMatch(/\.pose-preset-section\s*\{[\s\S]*?width:\s*var\(--right-sidebar-content-width\);[\s\S]*?max-width:\s*100%;/);
-  expect(css).toMatch(/\.preset-grid\s*\{[\s\S]*?grid-template-columns:\s*repeat\(4,\s*57px\);[\s\S]*?column-gap:\s*10\.6667px;[\s\S]*?row-gap:\s*8px;[\s\S]*?width:\s*var\(--right-sidebar-content-width\);[\s\S]*?justify-content:\s*start;/);
-  expect(css).toMatch(/\.preset-grid\s*button\s*\{[\s\S]*?display:\s*grid;[\s\S]*?place-items:\s*center;[\s\S]*?width:\s*57px;[\s\S]*?height:\s*34px;[\s\S]*?padding:\s*0;[\s\S]*?text-align:\s*center;[\s\S]*?color:\s*rgb\(var\(--text-muted-rgb\)\);[\s\S]*?font-size:\s*12px;[\s\S]*?line-height:\s*17px;/);
+  expect(css).toMatch(/\.preset-grid\s*\{[\s\S]*?grid-template-columns:\s*repeat\(auto-fit,\s*minmax\(54px,\s*1fr\)\);[\s\S]*?column-gap:\s*10px;[\s\S]*?row-gap:\s*8px;[\s\S]*?width:\s*var\(--right-sidebar-content-width\);[\s\S]*?max-width:\s*100%;[\s\S]*?justify-content:\s*start;/);
+  expect(css).toMatch(/\.preset-grid\s*button\s*\{[\s\S]*?display:\s*grid;[\s\S]*?place-items:\s*center;[\s\S]*?width:\s*100%;[\s\S]*?min-width:\s*0;[\s\S]*?height:\s*34px;[\s\S]*?padding:\s*0;[\s\S]*?text-align:\s*center;[\s\S]*?color:\s*rgb\(var\(--text-muted-rgb\)\);[\s\S]*?font-size:\s*12px;[\s\S]*?line-height:\s*17px;/);
   expect(css).toMatch(/\.preset-grid\s*button\.is-active\s*\{[\s\S]*?color:\s*rgb\(var\(--accent-rgb\)\);/);
 });
 

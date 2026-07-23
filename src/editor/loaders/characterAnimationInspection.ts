@@ -1,14 +1,16 @@
 import { PropertyBinding, type AnimationClip } from "three";
 import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader.js";
 import { GLTFLoader, type GLTF } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { BVHLoader } from "three/examples/jsm/loaders/BVHLoader.js";
 
-export type CharacterAnimationFormat = "fbx" | "glb";
+export type CharacterAnimationFormat = "fbx" | "glb" | "bvh";
 
 export type CharacterAnimationRigProfile =
   | "mixamo"
   | "mixamorig1"
   | "bip"
   | "cc-base"
+  | "soma"
   | "generic"
   | "unknown";
 
@@ -34,7 +36,7 @@ export interface LoadedCharacterAnimation {
 
 export const MIN_VALID_MOTION_DURATION = 0.05;
 
-const CHARACTER_ANIMATION_EXTENSION_RE = /\.(fbx|glb)$/i;
+const CHARACTER_ANIMATION_EXTENSION_RE = /\.(fbx|glb|bvh)$/i;
 
 function normalizeNodeName(name: string) {
   return name.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -83,6 +85,8 @@ function getExplicitProfiles(normalizedNodeNames: string[]) {
 }
 
 function inferRigProfile(normalizedNodeNames: string[]): CharacterAnimationRigProfile {
+  const somaSignals = ["hips", "spine1", "chest", "leftleg", "leftshin", "rightleg", "rightshin"];
+  if (somaSignals.filter((name) => normalizedNodeNames.includes(name)).length >= 6) return "soma";
   const explicitProfiles = getExplicitProfiles(normalizedNodeNames);
   const priority: CharacterAnimationRigProfile[] = ["mixamorig1", "mixamo", "bip", "cc-base"];
   const explicitProfile = priority.find((profile) => explicitProfiles.has(
@@ -101,8 +105,8 @@ function roundDuration(duration: number) {
 
 export function getCharacterAnimationFormat(fileName: string): CharacterAnimationFormat {
   const extension = fileName.match(CHARACTER_ANIMATION_EXTENSION_RE)?.[1]?.toLowerCase();
-  if (extension === "fbx" || extension === "glb") return extension;
-  throw new Error("角色动画目前仅支持 FBX / GLB 文件");
+  if (extension === "fbx" || extension === "glb" || extension === "bvh") return extension;
+  throw new Error("角色动画目前仅支持 FBX / GLB / BVH 文件");
 }
 
 function parseGlb(buffer: ArrayBuffer) {
@@ -121,8 +125,14 @@ export async function loadCharacterAnimationFile(file: File): Promise<LoadedChar
       return { format, animations: scene.animations ?? [] };
     }
 
-    const gltf = await parseGlb(buffer);
-    return { format, animations: gltf.animations ?? [] };
+    if (format === "glb") {
+      const gltf = await parseGlb(buffer);
+      return { format, animations: gltf.animations ?? [] };
+    }
+
+    const text = new TextDecoder().decode(buffer);
+    const bvh = new BVHLoader().parse(text);
+    return { format, animations: [bvh.clip] };
   } catch (error) {
     const detail = error instanceof Error ? error.message : "文件内容无法解析";
     throw new Error(`角色动画读取失败：${detail}`);

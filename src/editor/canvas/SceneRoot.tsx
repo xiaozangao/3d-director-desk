@@ -364,6 +364,21 @@ function ObjectSceneNode({
     : undefined;
   const importedAnimationClip = importedAnimationAsset?.clips.find((clip) => clip.id === importedActionRef?.clipId);
   const resolvedAnimationUrl = useResolvedLocalAssetUrl(importedAnimationAsset);
+  const externalAnimation = useMemo(() => (
+    resolvedAnimationUrl && importedAnimationAsset && importedAnimationClip
+      ? {
+          url: resolvedAnimationUrl,
+          format: importedAnimationAsset.modelFormat,
+          clipName: importedAnimationClip.name,
+          rigProfile: importedAnimationAsset.rigProfile,
+        }
+      : null
+  ), [
+    importedAnimationAsset?.modelFormat,
+    importedAnimationAsset?.rigProfile,
+    importedAnimationClip?.name,
+    resolvedAnimationUrl,
+  ]);
   const animatedCharacterRig = useMemo(() => {
     if (!item.characterRig) return item.characterRig;
     const actionPresetId = routeActionPresetId;
@@ -481,13 +496,7 @@ function ObjectSceneNode({
               animationTimeSeconds={motionTimeSeconds}
               assetUrl={isImportedModel ? resolvedAssetUrl : undefined}
               assetFormat={asset?.modelFormat}
-              externalAnimation={resolvedAnimationUrl && importedAnimationAsset && importedAnimationClip
-                ? {
-                    url: resolvedAnimationUrl,
-                    format: importedAnimationAsset.modelFormat,
-                    clipName: importedAnimationClip.name,
-                  }
-                : null}
+              externalAnimation={externalAnimation}
               orientationCorrection={asset?.characterOrientationCorrection}
               boneMap={asset?.characterBoneMap}
               bodyType={item.bodyType}

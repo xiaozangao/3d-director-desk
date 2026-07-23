@@ -1,0 +1,1 @@
+"""Kimodo motion generation service."""

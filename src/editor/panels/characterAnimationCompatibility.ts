@@ -7,6 +7,7 @@ import type {
 export function normalizeAnimationRigProfile(profile: string): CharacterRigProfile {
   if (profile === "mixamorig1") return "mixamo-alt";
   if (profile === "generic") return "generic-humanoid";
+  if (profile === "soma") return "soma";
   if (profile === "mixamo" || profile === "bip" || profile === "cc-base") return profile;
   return "unknown";
 }
@@ -17,6 +18,8 @@ export function areAnimationProfilesCompatible(
   hasCompleteBoneMap = false
 ) {
   const mixamoProfiles = new Set<CharacterRigProfile>(["mixamo", "mixamo-alt"]);
+  if (animation === "soma") return model !== "unknown";
+  if (model === "bip" && animation === "generic-humanoid") return true;
   if (mixamoProfiles.has(model) && mixamoProfiles.has(animation)) return true;
   if (hasCompleteBoneMap && animation !== "unknown") return true;
   return model !== "unknown" && model === animation;
