@@ -19,6 +19,12 @@ interface ImportKimodoResultDependencies {
   applyCharacterActionPreset: (characterId: string, actionPresetId: string | null) => void;
   restartPlayback: () => void;
 }
+
+export function getKimodoActionLabel(prompt: string) {
+  const normalized = prompt.replace(/\s+/g, " ").trim().replace(/[.!?]+$/, "");
+  return normalized.slice(0, 48) || "Kimodo action";
+}
+
 export async function importKimodoResult(
   job: KimodoJob,
   characterId: string,
@@ -38,8 +44,9 @@ export async function importKimodoResult(
   if (!clips.length) throw new Error(report.warnings[0] ?? "Kimodo BVH 不包含可播放动作");
 
   const stored = await storage.save(file);
+  const actionLabel = getKimodoActionLabel(job.prompt);
   const animationAssetId = dependencies.addImportedAnimationAsset({
-    name: `Kimodo · ${job.prompt.slice(0, 48)}`,
+    name: `Kimodo · ${actionLabel}`,
     fileName,
     url: createStoredAssetUrl(stored.key),
     modelFormat: "bvh",
@@ -48,7 +55,7 @@ export async function importKimodoResult(
     rigProfile: "soma",
     clips: clips.map((clip, index) => ({
       id: `clip_${index + 1}`,
-      name: clip.name,
+      name: clips.length === 1 ? actionLabel : `${actionLabel} ${index + 1}`,
       duration: clip.duration,
       trackCount: clip.trackCount,
     })),

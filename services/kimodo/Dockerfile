@@ -1,6 +1,7 @@
 FROM nvcr.io/nvidia/pytorch:24.10-py3
 
 ARG KIMODO_REF=1aece8c124d73d255ceff5086d983b844c9f4e94
+ARG PIP_INDEX_URL=https://pypi.org/simple
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
@@ -24,12 +25,17 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     && SKIP_MOTION_CORRECTION_IN_SETUP=1 python -m pip install \
       "kimodo @ git+https://github.com/nv-tlabs/kimodo.git@${KIMODO_REF}"
 
+RUN --mount=type=cache,target=/root/.cache/pip \
+    python -m pip install --no-deps \
+      "git+https://github.com/nv-tlabs/kimodo.git@${KIMODO_REF}#subdirectory=MotionCorrection"
+
 COPY services/__init__.py /workspace/services/__init__.py
 COPY services/kimodo/__init__.py /workspace/services/kimodo/__init__.py
 COPY services/kimodo/app /workspace/services/kimodo/app
 COPY services/kimodo/docker-entrypoint.sh /usr/local/bin/director-kimodo-entrypoint
 
-RUN chmod +x /usr/local/bin/director-kimodo-entrypoint \
+RUN sed -i 's/\r$//' /usr/local/bin/director-kimodo-entrypoint \
+    && chmod +x /usr/local/bin/director-kimodo-entrypoint \
     && mkdir -p /data /cache/huggingface
 
 EXPOSE 8787

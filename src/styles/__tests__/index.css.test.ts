@@ -160,6 +160,9 @@ it("matches the provided right inspector layout dimensions and field styling", (
   expect(css).toMatch(/\.scene-switch-row\s*\.inspector-toggle-row\s*span\s*\{[\s\S]*?color:\s*rgb\(var\(--text-muted-rgb\)\);[\s\S]*?white-space:\s*nowrap;/);
   expect(css).toMatch(/\.character-inspector\s*\.right-inspector-content,\s*[\r\n]+\s*\.character-inspector\s*\.right-inspector-content\s*>\s*\.inspector-section\s*\{[\s\S]*?width:\s*var\(--right-sidebar-content-width\);[\s\S]*?max-width:\s*100%;/);
   expect(css).toMatch(/\.character-inspector\s*\{[\s\S]*?width:\s*var\(--right-sidebar-width\);[\s\S]*?flex:\s*0 0 auto;[\s\S]*?overflow-x:\s*hidden;/);
+  expect(css).toMatch(/\.kimodo-motion-header-actions\s*\{[\s\S]*?position:\s*relative;[\s\S]*?z-index:\s*35;/);
+  expect(css).toMatch(/\.kimodo-service-settings\s*\{[\s\S]*?position:\s*static;/);
+  expect(css).toMatch(/\.kimodo-service-settings-popover\s*\{[\s\S]*?right:\s*0;[\s\S]*?width:\s*var\(--right-sidebar-content-width\);/);
 }
 );
 

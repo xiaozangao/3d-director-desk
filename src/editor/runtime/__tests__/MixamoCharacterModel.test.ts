@@ -7,10 +7,47 @@ import {
   getFallbackMixamoAnimationUrl,
   getSomaSemanticBodyPartForBoneName,
   getNativeMixamoActionClip,
+  prepareExternalAnimationClip,
   prepareMixamoAnimationClip,
   ROBOT_EXPRESSIVE_ACTION_CLIPS,
   SOLDIER_NATIVE_ACTION_CLIPS,
 } from "../MixamoCharacterModel";
+
+it("propagates a generic FBX profile and removes unmapped end-bone scale tracks", () => {
+  const sourceScene = new Group();
+  const sourceHand = new Bone();
+  const sourceHandEnd = new Bone();
+  sourceHand.name = "LeftHand";
+  sourceHandEnd.name = "LeftHand_end";
+  sourceScene.add(sourceHand);
+  sourceHand.add(sourceHandEnd);
+
+  const targetScene = new Group();
+  const targetHand = new Bone();
+  targetHand.name = "Bip001_L_Hand_010";
+  targetScene.add(targetHand);
+
+  const clip = new AnimationClip("left-hook", 1, [
+    new QuaternionKeyframeTrack("LeftHand.quaternion", [0, 1], [0, 0, 0, 1, 0, 0, Math.SQRT1_2, Math.SQRT1_2]),
+    new VectorKeyframeTrack("LeftHand_end.scale", [0, 1], [1, 1, 1, 0.5, 0.5, 0.5]),
+  ]);
+  const prepared = prepareExternalAnimationClip({
+    animation: {
+      url: "/animations/left-hook.fbx",
+      format: "fbx",
+      clipName: "left-hook",
+      rigProfile: "generic-humanoid",
+    },
+    retargetMode: "local-rest",
+    scene: targetScene,
+    sourceClip: clip,
+    sourceRestPose: captureCharacterRestPose(sourceScene),
+    sourceScene,
+    targetRestPose: captureCharacterRestPose(targetScene),
+  });
+
+  expect(prepared.tracks.map((track) => track.name)).toEqual(["Bip001_L_Hand_010.quaternion"]);
+});
 
 it("keeps an absolute animation pose when the same runtime time is sampled on later frames", () => {
   const scene = new Group();

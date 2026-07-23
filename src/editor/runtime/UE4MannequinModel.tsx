@@ -20,14 +20,22 @@ import { getRuntimePlaybackProgress } from "./playbackRuntime";
 import { VIEWPORT_OBJECT_LABEL_VERTICAL_GAP } from "../schema/viewportLabels";
 import type { CharacterBodyType } from "./mannequin/bodyTypes";
 import {
+  applyCharacterRestPose,
+  captureCharacterRestPose,
+  ExternalCharacterAnimationClip,
+  type ExternalCharacterAnimation,
+} from "./MixamoCharacterModel";
+import {
   UE4_MANNEQUIN_MODEL_URL,
   getUE4ModelScale,
 } from "./ue4Mannequin/ue4MannequinRig";
 import { applyUE4RestPoseAndRig, captureUE4RestPose } from "./ue4Mannequin/ue4MannequinPoseApplication";
 
 interface UE4MannequinModelProps {
+  animationTimeSeconds?: number;
   bodyType?: CharacterBodyType;
   color?: string;
+  externalAnimation?: ExternalCharacterAnimation | null;
   onLabelAnchorYChange?: (anchorY: number) => void;
   rigState?: CharacterRigState;
   runtimeMotion?: { duration: number; object: DirectorObject };
@@ -129,25 +137,45 @@ export function alignUE4MannequinToGround(scene: Object3D) {
 }
 
 export function UE4MannequinModel({
+  animationTimeSeconds = 0,
   bodyType = "mannequin",
   color = "#F3F5F7",
+  externalAnimation,
   onLabelAnchorYChange,
   rigState,
   runtimeMotion,
 }: UE4MannequinModelProps) {
   const gltf = useLoader(GLTFLoader, UE4_MANNEQUIN_MODEL_URL) as LoadedGLTF;
-  const scene = useMemo(() => cloneSkeleton(gltf.scene) as Group, [gltf.scene]);
-  const restPose = useMemo(() => captureUE4RestPose(scene), [scene]);
+  const hasExternalAnimation = Boolean(externalAnimation);
+  const { animationRestPose, restPose, scene } = useMemo(() => {
+    const clonedScene = cloneSkeleton(gltf.scene) as Group;
+    const clonedRestPose = captureUE4RestPose(clonedScene);
+    applyUE4RestPoseAndRig(clonedScene, {
+      bodyType,
+      controls: {},
+      restPose: clonedRestPose,
+    });
+    alignUE4MannequinToGround(clonedScene);
+    clonedScene.updateMatrixWorld(true);
+    return {
+      animationRestPose: captureCharacterRestPose(clonedScene),
+      restPose: clonedRestPose,
+      scene: clonedScene,
+    };
+  }, [bodyType, gltf.scene]);
   const modelScale = getUE4ModelScale(bodyType);
 
   useLayoutEffect(() => {
     isolateAndTintUE4MannequinMaterials(scene, color);
 
-    applyUE4RestPoseAndRig(scene, {
-      bodyType,
-      controls: rigState?.controls ?? {},
-      restPose,
-    });
+    if (hasExternalAnimation) applyCharacterRestPose(scene, animationRestPose);
+    else {
+      applyUE4RestPoseAndRig(scene, {
+        bodyType,
+        controls: rigState?.controls ?? {},
+        restPose,
+      });
+    }
     alignUE4MannequinToGround(scene);
 
     const modelRoot = scene.parent ?? scene;
@@ -157,10 +185,10 @@ export function UE4MannequinModel({
     if (Number.isFinite(labelAnchorY)) {
       onLabelAnchorYChange?.(Number(labelAnchorY.toFixed(4)));
     }
-  }, [bodyType, color, onLabelAnchorYChange, restPose, rigState?.controls, scene]);
+  }, [animationRestPose, bodyType, color, hasExternalAnimation, onLabelAnchorYChange, restPose, rigState?.controls, scene]);
 
   useFrame(() => {
-    if (!runtimeMotion) return;
+    if (externalAnimation || !runtimeMotion) return;
     const progress = getRuntimePlaybackProgress();
     const actionSample = getObjectMotionActionSample(runtimeMotion.object, progress, runtimeMotion.duration);
     const routeAction = actionSample.actionPresetId;
@@ -176,6 +204,16 @@ export function UE4MannequinModel({
   return (
     <group name={`ue-retopology-mannequin-${bodyType}`} scale={modelScale}>
       <primitive object={scene} />
+      {externalAnimation ? (
+        <ExternalCharacterAnimationClip
+          animation={externalAnimation}
+          animationTimeSeconds={animationTimeSeconds}
+          restPose={animationRestPose}
+          retargetMode="local-rest"
+          runtimeMotion={runtimeMotion}
+          scene={scene}
+        />
+      ) : null}
     </group>
   );
 }

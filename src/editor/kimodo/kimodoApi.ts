@@ -58,13 +58,70 @@ export class KimodoApiError extends Error {
   }
 }
 
+export const KIMODO_API_BASE_URL_STORAGE_KEY = "standalone-3d-director-desk-kimodo-api-url-v1";
+
 export function normalizeKimodoApiBaseUrl(value: string | undefined) {
   const trimmed = value?.trim().replace(/\/+$/, "");
   return trimmed || "http://127.0.0.1:8787";
 }
 
-function getDefaultBaseUrl() {
+export function getDefaultKimodoApiBaseUrl() {
   return normalizeKimodoApiBaseUrl(import.meta.env.VITE_KIMODO_API_URL);
+}
+
+export function validateKimodoApiBaseUrl(value: string) {
+  const normalized = value.trim().replace(/\/+$/, "");
+  if (!/^[a-z][a-z\d+.-]*:\/\//i.test(normalized)) {
+    throw new Error("请输入完整的 Kimodo 服务地址");
+  }
+  let parsed: URL;
+  try {
+    parsed = new URL(normalized);
+  } catch {
+    throw new Error("请输入完整的 Kimodo 服务地址");
+  }
+  if (!/^https?:$/.test(parsed.protocol) || parsed.username || parsed.password || parsed.search || parsed.hash) {
+    throw new Error("Kimodo 服务地址必须是 http:// 或 https:// URL");
+  }
+  return normalized;
+}
+
+function getStorageSafe() {
+  try {
+    return typeof localStorage === "undefined" ? null : localStorage;
+  } catch {
+    return null;
+  }
+}
+
+export function readKimodoApiBaseUrl() {
+  const storage = getStorageSafe();
+  if (!storage) return getDefaultKimodoApiBaseUrl();
+  try {
+    const stored = storage.getItem(KIMODO_API_BASE_URL_STORAGE_KEY);
+    return stored ? validateKimodoApiBaseUrl(stored) : getDefaultKimodoApiBaseUrl();
+  } catch {
+    return getDefaultKimodoApiBaseUrl();
+  }
+}
+
+export function writeKimodoApiBaseUrl(value: string) {
+  const normalized = validateKimodoApiBaseUrl(value);
+  try {
+    getStorageSafe()?.setItem(KIMODO_API_BASE_URL_STORAGE_KEY, normalized);
+  } catch {
+    // The connection still works for this session when storage is unavailable.
+  }
+  return normalized;
+}
+
+export function resetKimodoApiBaseUrl() {
+  try {
+    getStorageSafe()?.removeItem(KIMODO_API_BASE_URL_STORAGE_KEY);
+  } catch {
+    // The default can still be applied for this session.
+  }
+  return getDefaultKimodoApiBaseUrl();
 }
 
 async function parseApiError(response: Response) {
@@ -86,7 +143,7 @@ async function parseApiError(response: Response) {
 }
 
 export function createKimodoApi(
-  baseUrl = getDefaultBaseUrl(),
+  baseUrl = getDefaultKimodoApiBaseUrl(),
   request: typeof fetch = fetch
 ) {
   const normalizedBaseUrl = normalizeKimodoApiBaseUrl(baseUrl);
@@ -133,6 +190,19 @@ export function createKimodoApi(
     },
     retryJob(jobId: string, signal?: AbortSignal) {
       return json<KimodoJob>(`/api/v1/jobs/${encodeURIComponent(jobId)}/retry`, { method: "POST", signal });
+    },
+    async deleteJob(jobId: string, signal?: AbortSignal) {
+      let response: Response;
+      try {
+        response = await request(`${normalizedBaseUrl}/api/v1/jobs/${encodeURIComponent(jobId)}`, {
+          method: "DELETE",
+          signal,
+        });
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") throw error;
+        throw new KimodoApiError("无法连接 Kimodo 本地服务", "service_unavailable", 0);
+      }
+      if (!response.ok) throw await parseApiError(response);
     },
     async downloadResult(job: KimodoJob, signal?: AbortSignal) {
       if (!job.result) throw new KimodoApiError("动作结果尚不可用", "result_unavailable", 409);

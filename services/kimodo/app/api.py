@@ -176,7 +176,7 @@ def create_app(
     def delete_job(job_id: str) -> Response:
         job = get_job(job_id)
         if job.status not in TERMINAL_STATUSES:
-            raise error_response(status.HTTP_409_CONFLICT, "invalid_job_state", "Only completed jobs can be deleted")
+            raise error_response(status.HTTP_409_CONFLICT, "invalid_job_state", "Only terminal jobs can be deleted")
         if job.result_path:
             candidate = Path(job.result_path).resolve()
             output_root = config.output_dir.resolve()

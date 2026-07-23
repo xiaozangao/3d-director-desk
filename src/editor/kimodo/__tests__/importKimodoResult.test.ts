@@ -57,9 +57,11 @@ it("persists a successful BVH and applies its first clip", async () => {
   });
 
   expect(addImportedAnimationAsset).toHaveBeenCalledWith(expect.objectContaining({
+    name: "Kimodo · A person waves hello",
     modelFormat: "bvh",
     rigProfile: "soma",
     storageKey: "stored-1",
+    clips: [expect.objectContaining({ name: "A person waves hello" })],
   }));
   expect(applyCharacterActionPreset).toHaveBeenCalledWith("character-1", expect.stringContaining("imported-action:"));
   expect(restartPlayback).toHaveBeenCalled();

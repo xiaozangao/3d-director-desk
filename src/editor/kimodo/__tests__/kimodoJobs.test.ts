@@ -1,4 +1,4 @@
-import { isKimodoJobTerminal, mergeKimodoJobs } from "../kimodoJobs";
+import { getKimodoJobErrorSummary, isKimodoJobTerminal, mergeKimodoJobs } from "../kimodoJobs";
 import type { KimodoJob } from "../kimodoApi";
 
 function makeJob(id: string, status: KimodoJob["status"], createdAt: string): KimodoJob {
@@ -34,4 +34,12 @@ it("merges refreshed jobs and keeps newest first", () => {
   const refreshed = { ...old, status: "generating" as const, progress: 20 };
   const newer = makeJob("new", "queued", "2026-07-21T00:00:00Z");
   expect(mergeKimodoJobs([old], [refreshed, newer])).toEqual([newer, refreshed]);
+});
+
+it("replaces verbose backend traces with a concise actionable error", () => {
+  expect(getKimodoJobErrorSummary({
+    code: "generation_failed",
+    message: `layers.0.self_attn.q_proj.lora_A.default.weight | MISSING\n${"trace".repeat(40)}`,
+  })).toBe("生成失败，请重试或查看 Kimodo 服务日志");
+  expect(getKimodoJobErrorSummary({ code: "generation_failed", message: "短错误" })).toBe("短错误");
 });

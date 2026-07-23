@@ -24,50 +24,78 @@
 
 本机 RTX 4070 Ti 只有 12GB 显存，默认配置将文本编码器放在 CPU：`TEXT_ENCODER_DEVICE=cpu`。这会增加首次加载时间，但能显著降低 GPU 显存需求。
 
-## 配置 Token
+首次构建需要下载约 10 GiB 的压缩 CUDA/PyTorch 基础镜像，展开后约 21 GB；第一次生成还会下载约 1.1 GB 的 Kimodo 权重和约 15 GB 的 Llama 3 8B 文本编码器权重。建议预留至少 60 GB 可用空间，80 GB 更稳妥。首次安装和模型下载可能需要 1-3 小时，具体取决于网络与磁盘速度。
 
-在仓库根目录创建本地 secret 文件，不要提交它：
+## 推荐安装方式
+
+1. 启动 Docker Desktop，确认使用 WSL2 Linux 容器。
+2. 双击仓库根目录的 `install-kimodo.cmd`。
+3. 环境检查通过后，按提示输入 Hugging Face Read Token。输入内容不会显示。
+4. 等待镜像构建、容器启动和健康检查完成。
+
+安装器不会自动修改 NVIDIA 驱动、WSL2 或 Docker Desktop，也不会删除已有任务和模型缓存。重复运行安装器可以修复不完整安装；需要完全重建镜像时执行：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\kimodo-service.ps1 install -Rebuild
+```
+
+只检查环境、不安装：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\kimodo-service.ps1 doctor
+```
+
+环境检查会验证 Docker CLI、Compose、Docker 引擎、系统内存、Token 和 Docker GPU 访问。首次 GPU 检查可能下载一个小型 CUDA 检测镜像。
+
+## Token 与配置
+
+安装器以隐藏输入方式读取 Token，并将它写入 `.secrets/hf-token`。Token 不会作为命令行参数出现，不会进入镜像或任务数据库；`.secrets/` 已被 Git 忽略。
+
+如需手工配置，可在仓库根目录创建本地 secret 文件：
 
 ```powershell
 New-Item -ItemType Directory -Force .secrets
 Set-Content -NoNewline .secrets\hf-token "hf_your_read_token"
 ```
 
-`.secrets/` 已被 Git 忽略。服务入口只在启动时读取 `/run/secrets/hf_token`，不会把 token 写入镜像或任务数据库。
+需要修改端口、CORS 或 Python 包下载源时，可以编辑安装器自动创建的 `.env.kimodo`；配置模板是 `.env.kimodo.example`。
 
-需要修改端口或 CORS 时，可以基于 `.env.kimodo.example` 创建被忽略的 `.env.kimodo`：
+在国内网络环境中，可以只为 Kimodo 镜像构建启用清华 PyPI 镜像：
+
+```dotenv
+KIMODO_PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
+```
+
+该设置仅影响 `pip`。NVIDIA 基础镜像仍从 `nvcr.io` 下载。Hugging Face 权重默认通过官方地址下载；需要使用镜像时可在 `.env.kimodo` 中设置 `HF_ENDPOINT`：
+
+```dotenv
+HF_ENDPOINT=https://hf-mirror.com
+```
+
+访问 Meta Llama 等 gated 模型时，Hugging Face Token 会发送到配置的 `HF_ENDPOINT`。只应使用你信任的镜像服务，且镜像仍需支持该 Token 对应的仓库授权。代理或镜像地址中不要包含账号、Token 等凭据。
+
+如果 Hugging Face Xet 大文件传输在代理网络下反复出现 401 或 CAS 错误，可在 `.env.kimodo` 中设置 `HF_HUB_DISABLE_XET=1`，改用官方标准 HTTP 下载通道。已下载的缓存会继续复用。
+
+使用镜像下载 gated 文本编码器时，可以先运行独立预下载命令。它只会把 Token 发送到配置的 `HF_ENDPOINT`，以及镜像明确跳转到的 `huggingface.co`；签名 CDN 不会收到 Token。中断后重复运行会继续使用持久缓存中的断点文件：
+
+```powershell
+docker exec 3d-director-desk-kimodo-kimodo-1 python -m services.kimodo.app.prefetch_models --max-workers 1
+```
+
+预下载完成后可设置 `HF_HUB_OFFLINE=1` 并重启服务，生成任务将只读取本地模型缓存。
+
+## 手动安装
+
+无法使用双击入口或需要排障时，可以直接调用 Compose：
 
 ```powershell
 Copy-Item .env.kimodo.example .env.kimodo
-```
-
-后续命令增加 `--env-file .env.kimodo`。
-
-## 启动
-
-首次构建会下载较大的 PyTorch、Kimodo 和模型依赖：
-
-```powershell
-docker compose -f docker-compose.kimodo.yml up --build -d
-```
-
-查看状态：
-
-```powershell
-docker compose -f docker-compose.kimodo.yml ps
+docker compose --env-file .env.kimodo -f docker-compose.kimodo.yml up --build -d
+docker compose --env-file .env.kimodo -f docker-compose.kimodo.yml ps
 curl.exe http://127.0.0.1:8787/api/v1/health
 ```
 
-健康响应中的 `status: ok`、`worker.alive: true` 和 `kimodoCliAvailable: true` 表示可以提交任务。第一次生成还会下载模型权重，因此会明显更慢。
-
-启动导演台：
-
-```powershell
-$env:VITE_KIMODO_API_URL="http://127.0.0.1:8787"
-npm run dev -- --host 127.0.0.1 --port 5173
-```
-
-选中人物，打开“动作”页，在“Kimodo 动作”中提交提示词。任务完成后点击下载图标，将 BVH 保存并应用到角色。
+健康响应中的 `status: ok`、`worker.alive: true` 和 `kimodoCliAvailable: true` 表示可以提交任务。导演台默认连接 `http://127.0.0.1:8787`；选中人物并打开“动作”页即可使用 Kimodo。
 
 ## 任务恢复
 
@@ -81,25 +109,17 @@ npm run dev -- --host 127.0.0.1 --port 5173
 
 ## 运维命令
 
-查看日志：
+日常操作统一使用服务管理脚本：
 
 ```powershell
-docker compose -f docker-compose.kimodo.yml logs -f --tail 200 kimodo
+powershell -ExecutionPolicy Bypass -File scripts\kimodo-service.ps1 status
+powershell -ExecutionPolicy Bypass -File scripts\kimodo-service.ps1 logs
+powershell -ExecutionPolicy Bypass -File scripts\kimodo-service.ps1 start
+powershell -ExecutionPolicy Bypass -File scripts\kimodo-service.ps1 restart
+powershell -ExecutionPolicy Bypass -File scripts\kimodo-service.ps1 stop
 ```
 
-重启服务并保留任务：
-
-```powershell
-docker compose -f docker-compose.kimodo.yml restart kimodo
-```
-
-停止服务并保留数据卷：
-
-```powershell
-docker compose -f docker-compose.kimodo.yml down
-```
-
-不要使用 `down -v`，除非明确要删除任务数据库、结果和模型缓存。
+`stop` 不会删除 `kimodo-data` 和 `kimodo-hf-cache`。不要使用 `down -v`，除非明确要删除任务数据库、结果和模型缓存。
 
 ## 常见故障
 

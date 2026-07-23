@@ -19,6 +19,7 @@ export function areAnimationProfilesCompatible(
 ) {
   const mixamoProfiles = new Set<CharacterRigProfile>(["mixamo", "mixamo-alt"]);
   if (animation === "soma") return model !== "unknown";
+  if (model === "bip" && animation === "generic-humanoid") return true;
   if (mixamoProfiles.has(model) && mixamoProfiles.has(animation)) return true;
   if (hasCompleteBoneMap && animation !== "unknown") return true;
   return model !== "unknown" && model === animation;

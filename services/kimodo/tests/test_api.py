@@ -98,6 +98,20 @@ class KimodoApiTest(unittest.TestCase):
         self.assertEqual(deleted.status_code, 204)
         self.assertFalse(result.exists())
 
+    def test_active_job_cannot_be_deleted(self):
+        created = self.client.post("/api/v1/jobs", json={"prompt": "A person jumps."}).json()
+        response = self.client.delete(f"/api/v1/jobs/{created['id']}")
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(response.json()["detail"]["code"], "invalid_job_state")
+
+    def test_failed_job_can_be_deleted(self):
+        job = self.repository.create(GenerationRequest(prompt="A person jumps."))
+        self.repository.claim_next("worker")
+        self.repository.fail(job.id, "worker", "generation_failed", "Generation failed", retryable=False)
+        response = self.client.delete(f"/api/v1/jobs/{job.id}")
+        self.assertEqual(response.status_code, 204)
+        self.assertEqual(self.client.get(f"/api/v1/jobs/{job.id}").status_code, 404)
+
     def test_result_path_outside_output_directory_is_rejected(self):
         job = self.repository.create(GenerationRequest(prompt="A person waves."))
         self.repository.claim_next("worker")

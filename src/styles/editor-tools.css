@@ -355,6 +355,14 @@
   gap: 8px;
 }
 
+.kimodo-motion-header-actions {
+  position: relative;
+  z-index: 35;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
 .kimodo-motion-header > span {
   gap: 6px;
   color: rgb(var(--text-rgb));
@@ -372,6 +380,112 @@
 
 .kimodo-motion-header small.is-ready {
   color: #72c9a5;
+}
+
+.kimodo-service-settings {
+  position: static;
+}
+
+.kimodo-service-settings > button,
+.kimodo-service-settings-popover header > button {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  padding: 0;
+  color: rgb(var(--text-muted-rgb));
+  background: transparent;
+}
+
+.kimodo-service-settings > button:hover,
+.kimodo-service-settings > button:focus-visible,
+.kimodo-service-settings > button.is-active {
+  border-color: rgb(78 179 139 / 0.45);
+  color: #d8fff0;
+  background: rgb(78 179 139 / 0.1);
+}
+
+.kimodo-service-settings-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  display: grid;
+  gap: 9px;
+  width: var(--right-sidebar-content-width);
+  border: 1px solid rgb(var(--border-rgb) / 0.52);
+  border-radius: 7px;
+  padding: 9px;
+  color: rgb(var(--text-rgb));
+  background: rgb(var(--panel-rgb) / 0.98);
+  box-shadow: 0 14px 32px rgb(var(--overlay-rgb) / 0.42);
+  text-align: left;
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.kimodo-service-settings-popover header,
+.kimodo-service-settings-popover > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.kimodo-service-settings-popover header strong {
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.kimodo-service-settings-popover label {
+  display: grid;
+  gap: 4px;
+  color: rgb(var(--text-dim-rgb));
+  font-size: 10px;
+}
+
+.kimodo-service-settings-popover input {
+  width: 100%;
+  height: 29px;
+  min-width: 0;
+  border: 1px solid rgb(var(--border-rgb) / 0.42);
+  border-radius: 5px;
+  padding: 0 7px;
+  color: rgb(var(--text-rgb));
+  background: rgb(var(--field-rgb) / 0.9);
+  font-size: 10px;
+}
+
+.kimodo-service-settings-popover > p {
+  margin: 0;
+  color: #ee9b9f;
+  font-size: 10px;
+  line-height: 14px;
+}
+
+.kimodo-service-settings-popover > div {
+  justify-content: flex-end;
+}
+
+.kimodo-service-settings-popover > div > button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 26px;
+  border: 1px solid rgb(var(--border-rgb) / 0.38);
+  border-radius: 5px;
+  padding: 0 7px;
+  color: rgb(var(--text-muted-rgb));
+  background: rgb(var(--surface-rgb) / 0.72);
+  font-size: 10px;
+}
+
+.kimodo-service-settings-popover > div > button.is-primary {
+  border-color: rgb(78 179 139 / 0.5);
+  color: #d8fff0;
+  background: rgb(35 123 91 / 0.68);
 }
 
 .kimodo-prompt-field,
@@ -516,6 +630,13 @@
 .kimodo-job-actions button:focus-visible {
   color: #d8fff0;
   border-color: rgb(78 179 139 / 0.55);
+}
+
+.kimodo-job-actions button.is-danger:hover,
+.kimodo-job-actions button.is-danger:focus-visible {
+  color: #ffd8da;
+  border-color: rgb(224 91 98 / 0.65);
+  background: rgb(224 91 98 / 0.08);
 }
 
 .imported-action-header {

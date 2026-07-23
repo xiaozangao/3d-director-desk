@@ -1,16 +1,24 @@
-import { Download, RotateCcw, Sparkles, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Check, Download, RotateCcw, Settings2, Sparkles, Trash2, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useDirectorStore } from "../store/directorStore";
 import { importKimodoResult } from "./importKimodoResult";
-import { kimodoApi, type KimodoApi, type KimodoHealth, type KimodoJob } from "./kimodoApi";
-import { isKimodoJobTerminal, KIMODO_STAGE_LABELS, mergeKimodoJobs } from "./kimodoJobs";
+import {
+  createKimodoApi,
+  readKimodoApiBaseUrl,
+  resetKimodoApiBaseUrl,
+  writeKimodoApiBaseUrl,
+  type KimodoApi,
+  type KimodoHealth,
+  type KimodoJob,
+} from "./kimodoApi";
+import { getKimodoJobErrorSummary, isKimodoJobTerminal, KIMODO_STAGE_LABELS, mergeKimodoJobs } from "./kimodoJobs";
 
-type PanelApi = Pick<KimodoApi, "health" | "listJobs" | "createJob" | "cancelJob" | "retryJob" | "downloadResult">;
+type PanelApi = Pick<KimodoApi, "health" | "listJobs" | "createJob" | "cancelJob" | "retryJob" | "deleteJob" | "downloadResult">;
 
 export function KimodoMotionPanel({
   characterId,
   disabled = false,
-  api = kimodoApi,
+  api,
   importJob,
 }: {
   characterId: string;
@@ -27,26 +35,59 @@ export function KimodoMotionPanel({
   const [submitting, setSubmitting] = useState(false);
   const [pendingActionId, setPendingActionId] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [apiBaseUrl, setApiBaseUrl] = useState(readKimodoApiBaseUrl);
+  const [apiBaseUrlDraft, setApiBaseUrlDraft] = useState(apiBaseUrl);
+  const [apiBaseUrlError, setApiBaseUrlError] = useState<string | null>(null);
+  const [serviceSettingsOpen, setServiceSettingsOpen] = useState(false);
+  const [connectionRevision, setConnectionRevision] = useState(0);
+  const deletedJobIds = useRef(new Set<string>());
+  const settingsRef = useRef<HTMLDivElement>(null);
+  const settingsTriggerRef = useRef<HTMLButtonElement>(null);
   const addImportedAnimationAsset = useDirectorStore((state) => state.addImportedAnimationAsset);
   const applyCharacterActionPreset = useDirectorStore((state) => state.applyCharacterActionPreset);
   const restartCameraMotionPlayback = useDirectorStore((state) => state.restartCameraMotionPlayback);
 
+  const activeApi = useMemo(() => api ?? createKimodoApi(apiBaseUrl), [api, apiBaseUrl, connectionRevision]);
   const serviceReady = health?.status === "ok" && health.worker.alive && health.kimodoCliAvailable;
   const currentJobs = useMemo(() => jobs.slice(0, 5), [jobs]);
 
   const refresh = useCallback(async (signal?: AbortSignal) => {
     try {
-      const nextHealth = await api.health(signal);
+      const nextHealth = await activeApi.health(signal);
       setHealth(nextHealth);
       setOffline(false);
-      const nextJobs = await api.listJobs(20, signal);
-      setJobs((current) => mergeKimodoJobs(current, nextJobs));
+      const nextJobs = await activeApi.listJobs(20, signal);
+      setJobs((current) => mergeKimodoJobs(
+        current,
+        nextJobs.filter((job) => !deletedJobIds.current.has(job.id))
+      ));
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
       setOffline(true);
       setHealth(null);
     }
-  }, [api]);
+  }, [activeApi]);
+
+  useEffect(() => {
+    if (!serviceSettingsOpen) return;
+    function closeOutside(event: PointerEvent) {
+      if (!(event.target instanceof Node) || settingsRef.current?.contains(event.target)) return;
+      setServiceSettingsOpen(false);
+      setApiBaseUrlError(null);
+    }
+    function closeWithEscape(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      setServiceSettingsOpen(false);
+      setApiBaseUrlError(null);
+      settingsTriggerRef.current?.focus();
+    }
+    document.addEventListener("pointerdown", closeOutside);
+    window.addEventListener("keydown", closeWithEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOutside);
+      window.removeEventListener("keydown", closeWithEscape);
+    };
+  }, [serviceSettingsOpen]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -64,7 +105,7 @@ export function KimodoMotionPanel({
     setStatusMessage(null);
     try {
       const parsedSeed = seed.trim() ? Number(seed) : null;
-      const job = await api.createJob({
+      const job = await activeApi.createJob({
         prompt,
         durationSeconds,
         seed: Number.isInteger(parsedSeed) ? parsedSeed : null,
@@ -77,22 +118,26 @@ export function KimodoMotionPanel({
     }
   }
 
-  async function runAction(job: KimodoJob, action: "cancel" | "retry" | "import") {
+  async function runAction(job: KimodoJob, action: "cancel" | "retry" | "delete" | "import") {
     setPendingActionId(job.id);
     setStatusMessage(null);
     try {
       if (action === "cancel") {
-        const updated = await api.cancelJob(job.id);
+        const updated = await activeApi.cancelJob(job.id);
         setJobs((current) => mergeKimodoJobs(current, [updated]));
       } else if (action === "retry") {
-        const updated = await api.retryJob(job.id);
+        const updated = await activeApi.retryJob(job.id);
         setJobs((current) => mergeKimodoJobs(current, [updated]));
+      } else if (action === "delete") {
+        await activeApi.deleteJob(job.id);
+        deletedJobIds.current.add(job.id);
+        setJobs((current) => current.filter((currentJob) => currentJob.id !== job.id));
       } else if (importJob) {
         await importJob(job, characterId);
         setStatusMessage("动作已导入并应用到当前角色");
       } else {
         await importKimodoResult(job, characterId, {
-          api,
+          api: activeApi,
           addImportedAnimationAsset,
           applyCharacterActionPreset,
           restartPlayback: restartCameraMotionPlayback,
@@ -104,6 +149,32 @@ export function KimodoMotionPanel({
     } finally {
       setPendingActionId(null);
     }
+  }
+
+  function applyServiceUrl(nextBaseUrl: string) {
+    setApiBaseUrl(nextBaseUrl);
+    setApiBaseUrlDraft(nextBaseUrl);
+    setHealth(null);
+    setOffline(false);
+    setJobs([]);
+    setStatusMessage(null);
+    deletedJobIds.current.clear();
+    setConnectionRevision((current) => current + 1);
+    setServiceSettingsOpen(false);
+    setApiBaseUrlError(null);
+  }
+
+  function saveServiceSettings(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    try {
+      applyServiceUrl(writeKimodoApiBaseUrl(apiBaseUrlDraft));
+    } catch (error) {
+      setApiBaseUrlError(error instanceof Error ? error.message : "Kimodo 服务地址无效");
+    }
+  }
+
+  function restoreDefaultService() {
+    applyServiceUrl(resetKimodoApiBaseUrl());
   }
 
   const serviceLabel = offline
@@ -121,7 +192,75 @@ export function KimodoMotionPanel({
           <Sparkles aria-hidden="true" size={14} />
           <strong>Kimodo 动作</strong>
         </span>
-        <small className={serviceReady ? "is-ready" : undefined}>{serviceLabel}</small>
+        <div className="kimodo-motion-header-actions">
+          <div className="kimodo-service-settings" ref={settingsRef}>
+            <button
+              ref={settingsTriggerRef}
+              aria-controls="kimodo-service-settings-popover"
+              aria-expanded={serviceSettingsOpen}
+              aria-haspopup="dialog"
+              aria-label="设置 Kimodo 服务"
+              className={serviceSettingsOpen ? "is-active" : undefined}
+              title="服务设置"
+              type="button"
+              onClick={() => {
+                setApiBaseUrlDraft(apiBaseUrl);
+                setApiBaseUrlError(null);
+                setServiceSettingsOpen((current) => !current);
+              }}
+            >
+              <Settings2 aria-hidden="true" size={13} />
+            </button>
+            {serviceSettingsOpen ? (
+              <form
+                id="kimodo-service-settings-popover"
+                aria-label="Kimodo 服务设置"
+                className="kimodo-service-settings-popover"
+                role="dialog"
+                onSubmit={saveServiceSettings}
+              >
+                <header>
+                  <strong>服务连接</strong>
+                  <button
+                    aria-label="关闭 Kimodo 服务设置"
+                    title="关闭"
+                    type="button"
+                    onClick={() => setServiceSettingsOpen(false)}
+                  >
+                    <X aria-hidden="true" size={13} />
+                  </button>
+                </header>
+                <label>
+                  <span>服务地址</span>
+                  <input
+                    aria-label="Kimodo 服务地址"
+                    autoComplete="url"
+                    placeholder="http://127.0.0.1:8787"
+                    spellCheck={false}
+                    type="url"
+                    value={apiBaseUrlDraft}
+                    onChange={(event) => {
+                      setApiBaseUrlDraft(event.currentTarget.value);
+                      setApiBaseUrlError(null);
+                    }}
+                  />
+                </label>
+                {apiBaseUrlError ? <p role="alert">{apiBaseUrlError}</p> : null}
+                <div>
+                  <button type="button" onClick={restoreDefaultService}>
+                    <RotateCcw aria-hidden="true" size={12} />
+                    恢复默认
+                  </button>
+                  <button className="is-primary" type="submit">
+                    <Check aria-hidden="true" size={13} />
+                    保存
+                  </button>
+                </div>
+              </form>
+            ) : null}
+          </div>
+          <small className={serviceReady ? "is-ready" : undefined}>{serviceLabel}</small>
+        </div>
       </header>
 
       <label className="kimodo-prompt-field">
@@ -186,7 +325,7 @@ export function KimodoMotionPanel({
                   <small>{KIMODO_STAGE_LABELS[job.status]} · {job.progress}%</small>
                 </div>
                 <progress aria-label={`${job.prompt} 进度`} max={100} value={job.progress} />
-                {job.error ? <p role="status">{job.error.message}</p> : null}
+                {job.error ? <p role="status" title={job.error.message}>{getKimodoJobErrorSummary(job.error)}</p> : null}
                 <div className="kimodo-job-actions">
                   {!isKimodoJobTerminal(job) ? (
                     <button
@@ -219,6 +358,18 @@ export function KimodoMotionPanel({
                       onClick={() => void runAction(job, "import")}
                     >
                       <Download aria-hidden="true" size={13} />
+                    </button>
+                  ) : null}
+                  {isKimodoJobTerminal(job) ? (
+                    <button
+                      aria-label={`删除任务 ${job.prompt}`}
+                      className="is-danger"
+                      disabled={pending}
+                      title="删除"
+                      type="button"
+                      onClick={() => void runAction(job, "delete")}
+                    >
+                      <Trash2 aria-hidden="true" size={13} />
                     </button>
                   ) : null}
                 </div>
