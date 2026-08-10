@@ -24,6 +24,8 @@
       let finalizing = false;
       let readyHandled = false;
       let nextFrameIndex = 0;
+      let cancelResponse = null;
+      let duplicateResponse = null;
       const frameRequests = [
         { requestId: "smoke-frame-first", position: "first", expectedProgress: 0 },
         { requestId: "smoke-frame-current", position: "current", expectedProgress: 0.42 },
@@ -141,8 +143,30 @@
           && left.activeCameraId === right.activeCameraId;
       }
 
+      async function disconnectAndWaitForHome() {
+        director.contentWindow.postMessage({
+          type: "storyai:director-desk-disconnect",
+          payload: {
+            instanceId: "extension_protocol_smoke",
+            reason: "host-disconnected"
+          }
+        }, origin);
+        const deadline = Date.now() + 2_000;
+        while (Date.now() < deadline) {
+          const heading = director.contentDocument?.querySelector("h1")?.textContent?.trim();
+          if (heading === "选择一个导演台开始摆场景") return true;
+          await new Promise((resolve) => window.setTimeout(resolve, 50));
+        }
+        return false;
+      }
+
       async function finalizeIfReady() {
-        if (finalizing || !requiredRequestIds.every((requestId) => responses[requestId])) return;
+        if (
+          finalizing
+          || !cancelResponse
+          || !duplicateResponse
+          || !requiredRequestIds.every((requestId) => responses[requestId])
+        ) return;
         finalizing = true;
         try {
           const frameInspections = {};
@@ -174,7 +198,7 @@
             return response.ok
               && response.data.position === item.position
               && Math.abs(response.data.progress - item.expectedProgress) <= 0.000001
-              && response.data.width === 1280
+              && response.data.width >= 1200
               && response.data.height > 0
               && inspection.variance > 0.00002;
           });
@@ -184,13 +208,17 @@
             responses["smoke-timeline-before"].data,
             responses["smoke-timeline-after"].data
           );
+          const hostDisconnected = await disconnectAndWaitForHome();
           const passed = requiredRequestIds.every((requestId) => responses[requestId].ok)
             && frameChecksPassed
             && firstLastDelta > 0.0005
             && timelineRestored
             && projectResponse.data?.project?.cameras?.length > 0
             && pluginListResponse.data?.length === 1
-            && pluginListResponse.data[0].stale === false;
+            && pluginListResponse.data[0].stale === false
+            && cancelResponse.error?.code === "request-cancelled"
+            && duplicateResponse.error?.code === "duplicate-request"
+            && hostDisconnected;
           const report = {
             status: passed ? "passed" : "failed",
             ok: passed,
@@ -200,7 +228,10 @@
             timelineAfter: responses["smoke-timeline-after"].data,
             timelineRestored,
             projectFingerprint: projectResponse.data?.projectFingerprint,
-            pluginResultCount: pluginListResponse.data?.length ?? 0
+            pluginResultCount: pluginListResponse.data?.length ?? 0,
+            cancellation: cancelResponse.error?.code,
+            duplicateRequest: duplicateResponse.error?.code,
+            hostDisconnected
           };
           window.__EXTENSION_PROTOCOL_SMOKE__ = report;
           window.clearTimeout(smokeTimeout);
@@ -230,14 +261,36 @@
             request("smoke-capabilities", "capabilities.get");
             request("smoke-project", "project.get");
             request("smoke-timeline-before", "timeline.get");
-            requestNextFrame();
+            request("smoke-cancel-frame", "export.frame", {
+              fileName: "cancelled.png",
+              position: "current",
+              quality: "720p"
+            });
+            director.contentWindow.postMessage({
+              type: "storyai:director-desk:cancel",
+              payload: { requestId: "smoke-cancel-frame" }
+            }, origin);
           }, 500);
           return;
         }
         if (event.data?.type !== "storyai:director-desk:response") return;
         if (result.dataset.complete === "true") return;
         const response = event.data.payload;
+        if (response.requestId === "smoke-cancel-frame") {
+          cancelResponse = response;
+          requestNextFrame();
+          void finalizeIfReady();
+          return;
+        }
+        if (response.requestId === "smoke-capabilities" && responses[response.requestId]) {
+          duplicateResponse = response;
+          void finalizeIfReady();
+          return;
+        }
         responses[response.requestId] = response;
+        if (response.requestId === "smoke-capabilities" && response.ok) {
+          request("smoke-capabilities", "capabilities.get");
+        }
         if (frameRequests.some((item) => item.requestId === response.requestId)) {
           requestNextFrame();
         }

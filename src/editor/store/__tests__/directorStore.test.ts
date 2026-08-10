@@ -499,6 +499,46 @@ it("adds camera shots with two-digit camera names", () => {
   expect(state.project.cameras[1]?.motionPath?.keyframes).toEqual([]);
 });
 
+it("duplicates a camera shot with independent motion data and no copied screenshots", () => {
+  useDirectorStore.setState(createInitialDirectorState());
+  useDirectorStore.getState().updateCamera("cam_1", {
+    name: "开场推镜",
+    captures: [{
+      id: "cam_1-capture-01",
+      index: 1,
+      name: "开场推镜-截图01",
+      dataUrl: "data:image/png;base64,preview",
+    }],
+    lastCaptureUrl: "data:image/png;base64,preview",
+  });
+  useDirectorStore.getState().addCameraMotionKeyframe("cam_1");
+
+  const duplicatedId = useDirectorStore.getState().duplicateCameraShot("cam_1");
+  const state = useDirectorStore.getState();
+  const source = state.project.cameras.find((camera) => camera.id === "cam_1")!;
+  const duplicated = state.project.cameras.find((camera) => camera.id === duplicatedId)!;
+
+  expect(duplicatedId).toBe("cam_2");
+  expect(duplicated).toMatchObject({ name: "开场推镜 副本", captures: [], lastCaptureUrl: null });
+  expect(duplicated.motionPath?.keyframes).toHaveLength(1);
+  expect(duplicated.motionPath?.keyframes[0].id).toBe("cam_2_motion_key_1");
+  expect(duplicated.motionPath).not.toBe(source.motionPath);
+  expect(state.project.activeCameraId).toBe("cam_2");
+  expect(state.project.objects.find((object) => object.linkedCameraId === "cam_2")).toMatchObject({
+    name: "开场推镜 副本",
+    kind: "camera",
+  });
+});
+
+it("keeps the linked scene camera name in sync when renaming a shot", () => {
+  useDirectorStore.setState(createInitialDirectorState());
+
+  useDirectorStore.getState().updateCamera("cam_1", { name: "近景机位" });
+
+  expect(useDirectorStore.getState().project.objects.find((object) => object.linkedCameraId === "cam_1")?.name)
+    .toBe("近景机位");
+});
+
 it("creates one hidden motion camera without adding a scene camera object", () => {
   const state = createInitialDirectorState();
   useDirectorStore.setState({

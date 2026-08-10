@@ -2,6 +2,7 @@ import { getCameraMotionPath } from "../schema/cameraMotion";
 import type { DirectorProject, ViewMode } from "../schema/directorProject";
 import { getRuntimePlaybackProgress } from "../runtime/playbackRuntime";
 import { DIRECTOR_PROJECT_SCHEMA_VERSION, getDirectorProjectFingerprint } from "./projectDocument";
+import { getDirectorProjectPortability } from "./projectPortability";
 import type { CleanFrameExportResult } from "./cleanFrameExport";
 import type { ReferenceVideoExportResult } from "./referenceVideoExport";
 import type { DirectorPluginResultRecord } from "./pluginResultRegistry";
@@ -9,6 +10,10 @@ import type { DirectorPluginResultRecord } from "./pluginResultRegistry";
 export const DIRECTOR_EXTENSION_PROTOCOL_VERSION = 1;
 export const DIRECTOR_EXTENSION_REQUEST_TYPE = "storyai:director-desk:request";
 export const DIRECTOR_EXTENSION_RESPONSE_TYPE = "storyai:director-desk:response";
+export const DIRECTOR_EXTENSION_CANCEL_TYPE = "storyai:director-desk:cancel";
+export const DIRECTOR_EXTENSION_DISCONNECT_TYPE = "storyai:director-desk-disconnect";
+export const DIRECTOR_EXTENSION_REQUEST_TIMEOUT_MS = 15_000;
+export const DIRECTOR_EXTENSION_VIDEO_REQUEST_TIMEOUT_MS = 60_000;
 
 export const DIRECTOR_EXTENSION_ACTIONS = [
   "capabilities.get",
@@ -89,7 +94,13 @@ export type DirectorExtensionResponsePayload = {
       | "unsupported-action"
       | "export-busy"
       | "export-failed"
-      | "invalid-plugin-result";
+      | "invalid-plugin-result"
+      | "duplicate-request"
+      | "request-id-conflict"
+      | "request-cancelled"
+      | "request-timeout"
+      | "host-disconnected"
+      | "session-unauthorized";
     message: string;
   };
 };
@@ -148,24 +159,12 @@ export function createDirectorExtensionCapabilities(): DirectorExtensionCapabili
 }
 
 export function createDirectorExtensionProjectSnapshot(project: DirectorProject): DirectorExtensionProjectSnapshot {
-  const browserLocalAssetIds = [
-    ...project.assets.filter((asset) => Boolean(asset.storageKey) || asset.url.startsWith("blob:")).map((asset) => asset.id),
-    ...(project.animationAssets ?? [])
-      .filter((asset) => Boolean(asset.storageKey) || asset.url.startsWith("blob:"))
-      .map((asset) => asset.id),
-  ];
   return {
     protocolVersion: DIRECTOR_EXTENSION_PROTOCOL_VERSION,
     projectSchemaVersion: DIRECTOR_PROJECT_SCHEMA_VERSION,
     projectFingerprint: getDirectorProjectFingerprint(project),
     project: cloneJson(project),
-    portability: {
-      portable: browserLocalAssetIds.length === 0,
-      browserLocalAssetIds,
-      note: browserLocalAssetIds.length > 0
-        ? "这些素材只保存在当前浏览器，工程 JSON 仅包含引用；跨设备使用时需要重新导入原始素材。"
-        : null,
-    },
+    portability: getDirectorProjectPortability(project),
   };
 }
 

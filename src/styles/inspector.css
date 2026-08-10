@@ -740,6 +740,15 @@
   font-weight: 600;
 }
 
+.camera-shot-duplicate-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: var(--right-sidebar-content-width);
+  max-width: 100%;
+}
+
 .visually-hidden {
   position: absolute;
   width: 1px;

@@ -92,6 +92,10 @@ export function DirectorDeskFrame({
     return new Promise<unknown>((resolve, reject) => {
       const timeout = window.setTimeout(() => {
         pendingRef.current.delete(requestId);
+        target.postMessage({
+          type: "storyai:director-desk:cancel",
+          payload: { requestId },
+        }, normalizedDirectorOrigin);
         reject(new Error(`3D 导演台请求超时：${action}`));
       }, action === "export.video" ? 60_000 : 15_000);
       pendingRef.current.set(requestId, {
@@ -159,6 +163,10 @@ export function DirectorDeskFrame({
         window.clearTimeout(pending.timeout);
         pending.reject(new Error("3D 导演台 iframe 已关闭"));
       });
+      iframeRef.current?.contentWindow?.postMessage({
+        type: "storyai:director-desk-disconnect",
+        payload: { instanceId, reason: "host-disconnected" },
+      }, normalizedDirectorOrigin);
       pendingRef.current.clear();
     };
   }, [client, instanceId, normalizedDirectorOrigin, theme]);

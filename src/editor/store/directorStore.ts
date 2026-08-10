@@ -18,12 +18,10 @@ import type {
   DirectorProject,
   DirectorTransform,
   GeometryPrimitiveType,
-  GroundMaterialPresetId,
   DirectorModelFormat,
   CharacterImportReadiness,
   CharacterRigProfile,
   PanoramaProjectionMode,
-  SceneSettings,
   ViewMode,
 } from "../schema/directorProject";
 import {
@@ -50,6 +48,22 @@ import {
 import { parseImportedCharacterActionId } from "../schema/importedCharacterAction";
 import { normalizePerformanceProfileId } from "../performance/performanceProfiles";
 import { getRuntimePlaybackProgress, setRuntimePlaybackProgress } from "../runtime/playbackRuntime";
+import {
+  DEFAULT_SCENE,
+  DEFAULT_UI_STATE,
+  cloneJsonValue,
+  extractPersistedDirectorState,
+  migrateDirectorProject,
+  readPersistedDirectorState,
+} from "./directorStore.hydration";
+import {
+  getDirectorScenePersistenceScopeId,
+  persistLocalModelAsset,
+  readPersistedLocalModelAssets,
+  removePersistedLocalModelAsset,
+  setDirectorScenePersistenceScopeId,
+  writePersistedDirectorState,
+} from "./directorStore.persistence";
 
 import type {
   CameraPilotMode,
@@ -59,7 +73,6 @@ import type {
   DirectorState,
   DirectorStateOptions,
   DirectorStore,
-  DirectorUiState,
 } from "./directorStore.types";
 export type {
   CameraPilotMode,
@@ -77,29 +90,6 @@ export type {
   TransformMode,
 } from "./directorStore.types";
 
-
-
-const DEFAULT_SCENE: SceneSettings = {
-  scale: 1,
-  position: [0, 0, 0],
-  rotation: [0, 0, 0],
-  backgroundColor: "#000000",
-  backgroundBrightness: 1,
-  panoramaYaw: 0,
-  panoramaRadius: 60,
-  showLabels: true,
-  snapToGrid: false,
-  showGrid: true,
-  showGround: true,
-  groundMaterialPreset: "studio" as GroundMaterialPresetId,
-  groundTextureScale: 1,
-  groundColor: "#303640",
-  groundBrightness: 1,
-  groundOpacity: 0.4,
-  groundHeight: 0,
-  pathCollisionEnabled: false,
-};
-
 const CHARACTER_COLOR_PALETTE = [
   "#4F8EF7",
   "#E0524D",
@@ -114,54 +104,6 @@ const GEOMETRY_PRIMITIVE_COLOR = "#d7e7ff";
 const ADDED_MODEL_WORLD_SPACING = 1.25;
 const COPY_PASTE_POSITION_OFFSET = 0.6;
 const UNDO_STACK_LIMIT = 80;
-const LOCAL_MODEL_LIBRARY_STORAGE_KEY = "storyai-3d-director-local-model-library";
-const DIRECTOR_SCENE_STORAGE_KEY = "storyai-3d-director-desk-demo";
-const DIRECTOR_SCENE_STORAGE_KEY_PREFIX = `${DIRECTOR_SCENE_STORAGE_KEY}:`;
-const DEFAULT_UI_STATE: DirectorUiState = {
-  viewMode: "director",
-  selectedObjectId: null,
-  selectedObjectIds: [],
-  selectedCrowdId: null,
-  directorInspectorMode: "auto",
-  transformMode: "translate",
-  viewportAspectRatio: "auto",
-  viewportRuleOfThirdsEnabled: false,
-  viewportRotateSensitivity: DEFAULT_VIEWPORT_ROTATE_SENSITIVITY,
-  viewportZoomSensitivity: DEFAULT_VIEWPORT_ZOOM_SENSITIVITY,
-  viewportPanelsCollapsed: false,
-  showCharacterRoutes: true,
-  finishedShotFov: null,
-  motionMonitorFov: null,
-  motionStudioOpen: false,
-  performanceProfile: "auto",
-};
-
-function normalizeDirectorScenePersistenceScopeId(scopeId: string | null | undefined) {
-  return typeof scopeId === "string" ? scopeId.trim() : "";
-}
-
-function getInitialDirectorScenePersistenceScopeId() {
-  if (typeof window === "undefined") return null;
-
-  try {
-    const params = new URLSearchParams(window.location.search);
-    return normalizeDirectorScenePersistenceScopeId(params.get("instanceId")) || null;
-  } catch {
-    return null;
-  }
-}
-
-let directorScenePersistenceScopeId: string | null = getInitialDirectorScenePersistenceScopeId();
-
-function getDirectorSceneStorageKey(scopeId: string | null | undefined = directorScenePersistenceScopeId) {
-  const normalizedScopeId = normalizeDirectorScenePersistenceScopeId(scopeId);
-  return normalizedScopeId ? `${DIRECTOR_SCENE_STORAGE_KEY_PREFIX}${normalizedScopeId}` : DIRECTOR_SCENE_STORAGE_KEY;
-}
-
-function setDirectorScenePersistenceScopeId(scopeId: string | null | undefined) {
-  const normalizedScopeId = normalizeDirectorScenePersistenceScopeId(scopeId);
-  directorScenePersistenceScopeId = normalizedScopeId || null;
-}
 
 function createTransform(
   position: [number, number, number],
@@ -183,6 +125,18 @@ function formatSceneItemName(prefix: "角色" | "机位", index: number) {
   return `${prefix}${String(index).padStart(2, "0")}`;
 }
 
+function getUniqueCameraCopyName(sourceName: string, existingNames: string[]) {
+  const normalizedSourceName = sourceName.trim() || "未命名镜头";
+  const baseName = normalizedSourceName.replace(/ 副本(?: \d+)?$/, "");
+  const usedNames = new Set(existingNames);
+  const firstCandidate = `${baseName} 副本`;
+  if (!usedNames.has(firstCandidate)) return firstCandidate;
+
+  let copyIndex = 2;
+  while (usedNames.has(`${firstCandidate} ${copyIndex}`)) copyIndex += 1;
+  return `${firstCandidate} ${copyIndex}`;
+}
+
 function getNextSequentialId(existingIds: string[], prefix: string, minimumIndex = 1) {
   let maxIndex = minimumIndex - 1;
 
@@ -196,253 +150,6 @@ function getNextSequentialId(existingIds: string[], prefix: string, minimumIndex
   }
 
   return `${prefix}${maxIndex + 1}`;
-}
-
-function isLocalModelLibraryAsset(asset: DirectorAssetRef) {
-  return asset.sourceType === "model" && asset.kind !== "panorama" && asset.assetSource === "local";
-}
-
-function getLocalStorageSafe() {
-  if (typeof localStorage === "undefined") return null;
-
-  return localStorage;
-}
-
-function cloneJsonValue<T>(value: T): T {
-  return JSON.parse(JSON.stringify(value)) as T;
-}
-
-function readPersistedLocalModelAssets() {
-  const storage = getLocalStorageSafe();
-  if (!storage) return [];
-
-  try {
-    const snapshot = storage.getItem(LOCAL_MODEL_LIBRARY_STORAGE_KEY);
-    if (!snapshot) return [];
-
-    const parsed = JSON.parse(snapshot);
-    if (!Array.isArray(parsed)) return [];
-
-    return parsed.filter(
-      (asset): asset is DirectorAssetRef =>
-        asset &&
-        typeof asset.id === "string" &&
-        typeof asset.fileName === "string" &&
-        typeof asset.url === "string" &&
-        isLocalModelLibraryAsset(asset)
-    );
-  } catch {
-    return [];
-  }
-}
-
-function writePersistedLocalModelAssets(assets: DirectorAssetRef[]) {
-  const storage = getLocalStorageSafe();
-  if (!storage) return;
-
-  try {
-    storage.setItem(LOCAL_MODEL_LIBRARY_STORAGE_KEY, JSON.stringify(assets.filter(isLocalModelLibraryAsset)));
-  } catch {
-    // Local model files can exceed browser storage limits; keep the current scene usable if persistence fails.
-  }
-}
-
-function persistLocalModelAsset(asset: DirectorAssetRef) {
-  if (!isLocalModelLibraryAsset(asset)) return;
-
-  const persistedAssets = readPersistedLocalModelAssets().filter((item) => item.id !== asset.id);
-  writePersistedLocalModelAssets([...persistedAssets, asset]);
-}
-
-function removePersistedLocalModelAsset(assetId: string) {
-  writePersistedLocalModelAssets(readPersistedLocalModelAssets().filter((asset) => asset.id !== assetId));
-}
-
-function isDirectorProjectShape(value: unknown): value is DirectorProject {
-  if (!value || typeof value !== "object") return false;
-
-  const project = value as Partial<DirectorProject>;
-  return (
-    project.version === 1 &&
-    Array.isArray(project.assets) &&
-    Array.isArray(project.objects) &&
-    Array.isArray(project.cameras) &&
-    Boolean(project.scene) &&
-    typeof project.scene?.backgroundColor === "string"
-  );
-}
-
-function withPersistedLocalAssets(project: DirectorProject, includePersistedLocalAssets = false): DirectorProject {
-  if (!includePersistedLocalAssets) return project;
-
-  const persistedAssets = readPersistedLocalModelAssets();
-  if (!persistedAssets.length) return project;
-
-  const existingAssetIds = new Set(project.assets.map((asset) => asset.id));
-
-  return {
-    ...project,
-    assets: [...project.assets, ...persistedAssets.filter((asset) => !existingAssetIds.has(asset.id))],
-  };
-}
-
-function normalizeSceneSettings(scene: SceneSettings): SceneSettings {
-  return {
-    ...DEFAULT_SCENE,
-    ...scene,
-    position: Array.isArray(scene.position) ? scene.position : DEFAULT_SCENE.position,
-    rotation: Array.isArray(scene.rotation) ? scene.rotation : DEFAULT_SCENE.rotation,
-    backgroundColor: typeof scene.backgroundColor === "string" ? scene.backgroundColor : DEFAULT_SCENE.backgroundColor,
-    backgroundBrightness:
-      typeof scene.backgroundBrightness === "number" ? scene.backgroundBrightness : DEFAULT_SCENE.backgroundBrightness,
-    showGrid: typeof scene.showGrid === "boolean" ? scene.showGrid : DEFAULT_SCENE.showGrid,
-    groundMaterialPreset:
-      scene.groundMaterialPreset === "concrete"
-      || scene.groundMaterialPreset === "asphalt"
-      || scene.groundMaterialPreset === "wood"
-      || scene.groundMaterialPreset === "grass"
-        ? scene.groundMaterialPreset
-        : DEFAULT_SCENE.groundMaterialPreset,
-    groundTextureScale:
-      typeof scene.groundTextureScale === "number" && Number.isFinite(scene.groundTextureScale)
-        ? Math.min(8, Math.max(0.25, scene.groundTextureScale))
-        : DEFAULT_SCENE.groundTextureScale,
-    groundColor: typeof scene.groundColor === "string" ? scene.groundColor : DEFAULT_SCENE.groundColor,
-    groundBrightness: typeof scene.groundBrightness === "number" ? scene.groundBrightness : DEFAULT_SCENE.groundBrightness,
-  };
-}
-
-function migrateDirectorProject(project: DirectorProject): DirectorProject {
-  return {
-    ...project,
-    scene: normalizeSceneSettings(project.scene),
-    animationAssets: Array.isArray(project.animationAssets)
-      ? project.animationAssets
-      : [],
-    cameras: project.cameras.map((camera) => ({
-      ...camera,
-      motionPath: normalizeCameraMotionPath(camera.motionPath, camera.target, camera),
-    })),
-    objects: project.objects.map((object) => {
-      const withMotionPath = object.motionPath
-        ? { ...object, motionPath: normalizeObjectMotionPath(object.motionPath, object.transform) }
-        : object;
-      if (withMotionPath.kind !== "character") return withMotionPath;
-
-      const rig = withMotionPath.characterRig;
-      if (rig?.rigType === "ue4-mannequin" || rig?.rigType === "mixamo") return withMotionPath;
-
-      return {
-        ...withMotionPath,
-        characterRig: {
-          rigType: "ue4-mannequin",
-          posePresetId: rig?.posePresetId ?? "stand",
-          controls: rig?.controls ?? {},
-        },
-      };
-    }),
-  };
-}
-
-function extractPersistedDirectorState(state: DirectorRuntimeState): DirectorState {
-  return cloneJsonValue({
-    viewMode: state.viewMode,
-    selectedObjectId: state.selectedObjectId,
-    selectedObjectIds: state.selectedObjectIds,
-    selectedCrowdId: state.selectedCrowdId,
-    directorInspectorMode: state.directorInspectorMode,
-    transformMode: state.transformMode,
-    viewportAspectRatio: state.viewportAspectRatio,
-    viewportRuleOfThirdsEnabled: state.viewportRuleOfThirdsEnabled,
-    viewportRotateSensitivity: state.viewportRotateSensitivity,
-    viewportZoomSensitivity: state.viewportZoomSensitivity,
-    viewportPanelsCollapsed: state.viewportPanelsCollapsed,
-    showCharacterRoutes: state.showCharacterRoutes,
-    finishedShotFov: state.finishedShotFov,
-    motionMonitorFov: state.motionMonitorFov,
-    motionStudioOpen: state.motionStudioOpen,
-    performanceProfile: state.performanceProfile,
-    project: state.project,
-  });
-}
-
-function writePersistedDirectorState(state: DirectorState) {
-  const storage = getLocalStorageSafe();
-  if (!storage) return;
-
-  try {
-    storage.setItem(getDirectorSceneStorageKey(), JSON.stringify(state));
-  } catch {
-    // Keep the editor usable if the browser storage quota is exceeded.
-  }
-}
-
-function createStateFromPersistedProject(project: DirectorProject, options: DirectorStateOptions = {}): DirectorState {
-  return {
-    ...DEFAULT_UI_STATE,
-    project: withPersistedLocalAssets(migrateDirectorProject(cloneJsonValue(project)), options.includePersistedLocalAssets),
-  };
-}
-
-function readPersistedDirectorState(options: DirectorStateOptions = {}): DirectorState | null {
-  const storage = getLocalStorageSafe();
-  if (!storage) return null;
-
-  try {
-    const snapshot = storage.getItem(getDirectorSceneStorageKey(options.persistenceScopeId));
-    if (!snapshot) return null;
-
-    const parsed = JSON.parse(snapshot) as unknown;
-
-    if (isDirectorProjectShape(parsed)) {
-      return createStateFromPersistedProject(parsed, options);
-    }
-
-    if (!parsed || typeof parsed !== "object") return null;
-
-    const state = parsed as Partial<DirectorState>;
-    if (!isDirectorProjectShape(state.project)) return null;
-
-    return {
-      viewMode: state.viewMode === "camera" ? "camera" : "director",
-      selectedObjectId: typeof state.selectedObjectId === "string" ? state.selectedObjectId : null,
-      selectedObjectIds: Array.isArray(state.selectedObjectIds)
-        ? state.selectedObjectIds.filter((item): item is string => typeof item === "string")
-        : [],
-      selectedCrowdId: typeof state.selectedCrowdId === "string" ? state.selectedCrowdId : null,
-      directorInspectorMode: state.directorInspectorMode === "scene" ? "scene" : "auto",
-      transformMode:
-        state.transformMode === "rotate" || state.transformMode === "scale" ? state.transformMode : "translate",
-      viewportAspectRatio: state.viewportAspectRatio ?? "auto",
-      viewportRuleOfThirdsEnabled: Boolean(state.viewportRuleOfThirdsEnabled),
-      viewportRotateSensitivity: normalizeViewportSensitivity(
-        state.viewportRotateSensitivity,
-        DEFAULT_VIEWPORT_ROTATE_SENSITIVITY
-      ),
-      viewportZoomSensitivity: normalizeViewportSensitivity(
-        state.viewportZoomSensitivity,
-        DEFAULT_VIEWPORT_ZOOM_SENSITIVITY
-      ),
-      viewportPanelsCollapsed: Boolean(state.viewportPanelsCollapsed),
-      showCharacterRoutes: state.showCharacterRoutes !== false,
-      finishedShotFov:
-        typeof state.finishedShotFov === "number" && Number.isFinite(state.finishedShotFov)
-          ? Math.min(120, Math.max(10, state.finishedShotFov))
-          : null,
-      motionMonitorFov:
-        typeof state.motionMonitorFov === "number" && Number.isFinite(state.motionMonitorFov)
-          ? Math.min(120, Math.max(10, state.motionMonitorFov))
-          : null,
-      motionStudioOpen: false,
-      performanceProfile: normalizePerformanceProfileId(state.performanceProfile),
-      project: withPersistedLocalAssets(
-        migrateDirectorProject(cloneJsonValue(state.project)),
-        options.includePersistedLocalAssets
-      ),
-    };
-  } catch {
-    return null;
-  }
 }
 
 function createRuntimeStateFromPersistedState(state: DirectorState): DirectorRuntimeState {
@@ -2181,6 +1888,78 @@ export const useDirectorStore = create<DirectorStore>((set, get) => {
 
       return nextCameraId;
     },
+    duplicateCameraShot: (cameraId) => {
+      let duplicatedCameraId: string | null = null;
+
+      commitMutation((state) => {
+        const sourceCamera = state.project.cameras.find((camera) => camera.id === cameraId && !camera.isVirtual);
+        if (!sourceCamera) return state;
+
+        const cameraIndex = state.project.cameras.length + 1;
+        const nextCameraId = getNextSequentialId(
+          state.project.cameras.map((camera) => camera.id),
+          "cam_",
+          cameraIndex
+        );
+        const nextObjectId = getNextSequentialId(
+          state.project.objects.map((object) => object.id),
+          "cam_object_",
+          cameraIndex
+        );
+        const nextName = getUniqueCameraCopyName(
+          sourceCamera.name,
+          state.project.cameras.map((camera) => camera.name)
+        );
+        const sourceSnapshot = cloneJsonValue(sourceCamera);
+        const nextMotionPath = sourceSnapshot.motionPath
+          ? {
+            ...sourceSnapshot.motionPath,
+            keyframes: sourceSnapshot.motionPath.keyframes.map((keyframe, index) => ({
+              ...keyframe,
+              id: `${nextCameraId}_motion_key_${index + 1}`,
+            })),
+          }
+          : undefined;
+        const nextCamera: DirectorCameraShot = {
+          ...sourceSnapshot,
+          id: nextCameraId,
+          name: nextName,
+          lastCaptureUrl: null,
+          captures: [],
+          motionPath: nextMotionPath,
+        };
+        const sourceObject = state.project.objects.find((object) => object.linkedCameraId === sourceCamera.id);
+        const nextCameraObject: DirectorObject = {
+          id: nextObjectId,
+          name: nextName,
+          kind: "camera",
+          visible: sourceObject?.visible ?? true,
+          locked: sourceObject?.locked ?? false,
+          linkedCameraId: nextCameraId,
+          transform: cloneJsonValue(nextCamera.transform),
+        };
+        duplicatedCameraId = nextCameraId;
+
+        return {
+          ...state,
+          selectedObjectId: nextObjectId,
+          selectedObjectIds: [nextObjectId],
+          selectedCrowdId: null,
+          selectedCameraKeyframeId: null,
+          selectedCameraKeyframeIds: [],
+          cameraMotionPlaying: false,
+          directorInspectorMode: "auto",
+          project: {
+            ...state.project,
+            cameras: [...state.project.cameras, nextCamera],
+            activeCameraId: nextCameraId,
+            objects: [...state.project.objects, nextCameraObject],
+          },
+        };
+      });
+
+      return duplicatedCameraId;
+    },
     ensureMotionCamera: (snapshot) => {
       let motionCameraId = "";
 
@@ -2509,11 +2288,15 @@ export const useDirectorStore = create<DirectorStore>((set, get) => {
                 }
               : item
           ),
-          objects: state.project.objects.map((item) =>
-            item.kind === "camera" && item.linkedCameraId === cameraId && patch.transform
-              ? { ...item, transform: patch.transform }
-              : item
-          ),
+          objects: state.project.objects.map((item) => {
+            if (item.kind !== "camera" || item.linkedCameraId !== cameraId) return item;
+            if (!patch.transform && patch.name === undefined) return item;
+            return {
+              ...item,
+              ...(patch.name !== undefined ? { name: patch.name } : {}),
+              ...(patch.transform ? { transform: patch.transform } : {}),
+            };
+          }),
         },
       })),
     selectCameraMotionKeyframe: (keyframeId) =>
@@ -3015,7 +2798,7 @@ export const useDirectorStore = create<DirectorStore>((set, get) => {
       const snapshot = createInitialDirectorState({
         includePersistedLocalAssets: true,
         includePersistedScene: true,
-        persistenceScopeId: directorScenePersistenceScopeId,
+        persistenceScopeId: getDirectorScenePersistenceScopeId(),
       });
       const runtimeState = createRuntimeStateFromPersistedState(snapshot);
 

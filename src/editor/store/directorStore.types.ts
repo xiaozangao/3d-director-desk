@@ -186,6 +186,7 @@ export interface DirectorActions {
   addCrowdCharacters: (input: CrowdCharactersInput) => string[];
   addGeometryPrimitive: (geometryType: GeometryPrimitiveType) => void;
   addCameraShot: (snapshot?: CameraShotSnapshot) => string;
+  duplicateCameraShot: (cameraId: string) => string | null;
   ensureMotionCamera: (snapshot?: CameraShotSnapshot) => string;
   deleteSelectedObject: () => void;
   toggleObjectVisible: (id: string) => void;

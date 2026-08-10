@@ -83,6 +83,25 @@ describe("tauriHostTransport", () => {
     expect(getCurrentDirectorDeskInstanceId()).toBe("node-14");
   });
 
+  it("accepts cancel and disconnect messages only for the active instance", async () => {
+    const onMessage = vi.fn();
+    await initTauriDirectorHostTransport(onMessage);
+
+    for (const type of [
+      "storyai:director-desk:cancel",
+      "storyai:director-desk-disconnect",
+    ]) {
+      eventHandler?.({
+        payload: {
+          instanceId: "node-14",
+          message: { type, payload: { instanceId: "node-14", requestId: "request-1" } },
+        },
+      });
+    }
+
+    expect(onMessage).toHaveBeenCalledTimes(2);
+  });
+
   it("does not initialize outside the explicit Tauri transport mode", async () => {
     window.history.replaceState({}, "", "/?instanceId=node-14");
     const onMessage = vi.fn();

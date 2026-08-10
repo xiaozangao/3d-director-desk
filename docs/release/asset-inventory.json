@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "candidateVersion": "0.4.0",
+  "assets": [
+    {
+      "path": "public/local-assets/guo-3d-assets",
+      "fileCount": 952,
+      "sourceEvidence": [
+        "guo-mounted-props-200/README.md",
+        "guo-scene-presets-200/README.md",
+        "guo-skeleton-models/README.md"
+      ],
+      "redistributionStatus": "blocked-missing-license",
+      "reason": "README 仅说明包用途，没有许可证、作者、原始来源或再分发授权。"
+    },
+    {
+      "path": "public/local-assets/mixamo",
+      "fileCount": 11,
+      "sourceEvidence": [
+        "SOURCES.md"
+      ],
+      "redistributionStatus": "blocked-license-review",
+      "reason": "已有逐项来源，但未保存各来源许可证快照，也未确认 Mixamo 衍生资产的再分发边界。"
+    },
+    {
+      "path": "public/models/ue-mannequin-retopology.glb",
+      "fileCount": 2,
+      "sourceEvidence": [
+        "public/models/ue-mannequin-retopology.license.txt"
+      ],
+      "redistributionStatus": "blocked-license-review",
+      "reason": "已有 Sketchfab Standard 来源声明，但发行前仍需确认原始下载条款和独立模型再分发限制。"
+    },
+    {
+      "path": "public/benchmark-panorama.jpg",
+      "fileCount": 1,
+      "sourceEvidence": [],
+      "redistributionStatus": "blocked-missing-provenance",
+      "reason": "仓库内未找到来源、作者或许可证记录。"
+    }
+  ]
+}

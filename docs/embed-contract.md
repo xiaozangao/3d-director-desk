@@ -152,6 +152,31 @@ iframe.contentWindow?.postMessage(
 
 失败时 `ok` 为 `false`，并返回 `error.code` 和中文 `error.message`。宿主必须按 `requestId` 配对响应，不能假设响应顺序与请求顺序相同。
 
+`requestId` 在同一导演台页面生命周期内必须唯一。相同请求仍在执行时重复发送会被合并为同一个在途操作；用同一 ID 发送不同操作会终止原操作并返回 `request-id-conflict`；已完成 ID 再次发送返回 `duplicate-request`，不会重复导出或重复写入插件结果。
+
+宿主超时或用户取消时发送：
+
+```ts
+{
+  type: "storyai:director-desk:cancel",
+  payload: { requestId: "待取消的请求 ID" }
+}
+```
+
+导演台会以原请求的响应返回 `request-cancelled`。普通请求在导演台内部最长处理 15 秒，视频导出最长 60 秒；内部超时返回 `request-timeout`。宿主关闭 iframe、切换实例或授权续期失败前应发送：
+
+```ts
+{
+  type: "storyai:director-desk-disconnect",
+  payload: {
+    instanceId: "当前实例 ID",
+    reason: "host-disconnected" | "authorization-refresh-failed"
+  }
+}
+```
+
+断开会取消全部在途请求并退出当前内存作用域。ICA 作用域进入锁定页，但不会删除 localStorage 或 IndexedDB 中的场景数据；重新取得有效 Capability 后可以恢复打开。
+
 ### 查询能力
 
 请求 `capabilities.get`。返回的关键字段：

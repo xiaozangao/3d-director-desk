@@ -19,6 +19,13 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "test": "vitest run",
+    "test:ci": "vitest run --reporter=default",
+    "typecheck": "tsc -b --pretty false",
+    "audit:high": "npm audit --audit-level=high",
+    "build:budget": "node scripts/check-build-budget.mjs",
+    "verify": "npm run audit:high && npm run test:ci && npm run typecheck && npm run build && npm run build:budget",
+    "release:check": "node scripts/check-release-readiness.mjs",
+    "verify:release": "npm run verify && npm run release:check",
     "preview": "vite preview"
   },
   "dependencies": {

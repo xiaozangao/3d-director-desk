@@ -6,6 +6,7 @@ export interface CleanFrameExportRequest {
   fileName: string;
   position: CleanFramePosition;
   quality: ReferenceVideoExportQuality;
+  signal?: AbortSignal;
 }
 
 export interface CleanFrameExportResult {
