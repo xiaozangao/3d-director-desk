@@ -1,4 +1,4 @@
-import { Camera, Download, Eye, Images, Pause, Play, Plus, Route, Send, Trash2, Waypoints, X, ZoomIn, ZoomOut } from "lucide-react";
+import { Camera, Copy, Download, Eye, Images, Pause, Play, Plus, Route, Send, Trash2, Waypoints, X, ZoomIn, ZoomOut } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   InspectorAxisGroup,
@@ -56,6 +56,7 @@ export function CameraPanel() {
   const objects = useDirectorStore((state) => state.project.objects);
   const setActiveCamera = useDirectorStore((state) => state.setActiveCamera);
   const addCameraCaptures = useDirectorStore((state) => state.addCameraCaptures);
+  const duplicateCameraShot = useDirectorStore((state) => state.duplicateCameraShot);
   const updateCamera = useDirectorStore((state) => state.updateCamera);
   const selectedCameraKeyframeId = useDirectorStore((state) => state.selectedCameraKeyframeId);
   const cameraMotionProgress = useDirectorStore((state) => state.cameraMotionProgress);
@@ -736,6 +737,14 @@ export function CameraPanel() {
               </option>
             ))}
           </InspectorSelectField>
+          <button
+            className="inspector-action-button camera-shot-duplicate-button"
+            type="button"
+            onClick={() => duplicateCameraShot(currentCamera.id)}
+          >
+            <Copy aria-hidden="true" size={14} strokeWidth={1.9} />
+            复制当前镜头
+          </button>
           <InspectorAxisGroup
             label="位置"
             axes={[

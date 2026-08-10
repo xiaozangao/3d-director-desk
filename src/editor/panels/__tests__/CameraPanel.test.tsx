@@ -269,6 +269,17 @@ it("updates the selected camera name and fov", async () => {
   expect(camera.fov).toBe(65);
 });
 
+it("duplicates the current camera from the properties tab", async () => {
+  const user = userEvent.setup();
+  render(<CameraPanel />);
+
+  await user.click(screen.getByRole("button", { name: "复制当前镜头" }));
+
+  expect(useDirectorStore.getState().project.cameras).toHaveLength(2);
+  expect(useDirectorStore.getState().project.activeCameraId).toBe("cam_2");
+  expect(screen.getByLabelText("机位名称")).toHaveValue("机位01 副本");
+});
+
 it("uses the custom dropdown menu to switch camera shots", async () => {
   const user = userEvent.setup();
   useDirectorStore.getState().addCameraShot();

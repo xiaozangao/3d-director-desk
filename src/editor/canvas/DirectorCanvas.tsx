@@ -98,6 +98,44 @@ const HIDE_FROM_VIEWPORT_CAPTURE_KEY = "hideFromViewportCapture";
 const CAPTURE_LABEL_FONT_SIZE = 12;
 const CAPTURE_LABEL_HORIZONTAL_PADDING = 10;
 const CAPTURE_LABEL_VERTICAL_PADDING = 6;
+
+function getExportAbortError(signal?: AbortSignal) {
+  return signal?.reason instanceof Error ? signal.reason : new DOMException("导出已取消", "AbortError");
+}
+
+function throwIfExportAborted(signal?: AbortSignal) {
+  if (signal?.aborted) throw getExportAbortError(signal);
+}
+
+function waitForExportDelay(delayMs: number, signal?: AbortSignal) {
+  throwIfExportAborted(signal);
+  return new Promise<void>((resolve, reject) => {
+    const timeout = window.setTimeout(() => {
+      signal?.removeEventListener("abort", abort);
+      resolve();
+    }, delayMs);
+    const abort = () => {
+      window.clearTimeout(timeout);
+      reject(getExportAbortError(signal));
+    };
+    signal?.addEventListener("abort", abort, { once: true });
+  });
+}
+
+function waitForExportFrame(signal?: AbortSignal) {
+  throwIfExportAborted(signal);
+  return new Promise<void>((resolve, reject) => {
+    const frame = requestAnimationFrame(() => {
+      signal?.removeEventListener("abort", abort);
+      resolve();
+    });
+    const abort = () => {
+      cancelAnimationFrame(frame);
+      reject(getExportAbortError(signal));
+    };
+    signal?.addEventListener("abort", abort, { once: true });
+  });
+}
 const CAPTURE_LABEL_BORDER_RADIUS = 999;
 const CAPTURE_LABEL_PANEL_RGB_FALLBACK = "26 26 26";
 const CAPTURE_LABEL_TEXT_RGB_FALLBACK = "255 255 255";
@@ -1158,9 +1196,12 @@ export function DirectorCanvas() {
   }, []);
 
   useEffect(() => {
-    setReferenceVideoExportHandler(async ({ fileName, fps, quality }) => {
+    setReferenceVideoExportHandler(async ({ fileName, fps, quality, signal }) => {
       if (mediaExportInProgressRef.current) throw new Error("已有导出任务正在进行，请稍后再试");
+      throwIfExportAborted(signal);
       mediaExportInProgressRef.current = true;
+      let activeRecorder: MediaRecorder | null = null;
+      let activeStream: MediaStream | null = null;
       const originalProgress = getRuntimePlaybackProgress();
       const originalPlaying = useDirectorStore.getState().cameraMotionPlaying;
       flushSync(() => {
@@ -1170,7 +1211,7 @@ export function DirectorCanvas() {
       try {
         const startedWaitingAt = performance.now();
         while (!referenceVideoCanvasRef.current && performance.now() - startedWaitingAt < 2000) {
-          await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+          await waitForExportFrame(signal);
         }
         const canvas = referenceVideoCanvasRef.current;
         const mimeType = getSupportedReferenceVideoMimeType();
@@ -1179,10 +1220,12 @@ export function DirectorCanvas() {
         }
 
         const stream = canvas.captureStream(fps);
+        activeStream = stream;
         const recorder = new MediaRecorder(stream, {
           mimeType,
           videoBitsPerSecond: quality === "1080p" ? 12_000_000 : 6_000_000,
         });
+        activeRecorder = recorder;
         const recordedMimeType = recorder.mimeType || mimeType;
         if (!recordedMimeType.toLowerCase().startsWith("video/mp4")) {
           stream.getTracks().forEach((track) => track.stop());
@@ -1199,16 +1242,19 @@ export function DirectorCanvas() {
 
         setCameraMotionPlaying(false);
         setCameraMotionProgress(0);
-        await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+        await waitForExportFrame(signal);
+        await waitForExportFrame(signal);
         recorder.start(250);
-        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+        await waitForExportFrame(signal);
         setCameraMotionPlaying(true);
-        await new Promise<void>((resolve) => window.setTimeout(resolve, activeMotionDuration * 1000 + 120));
+        await waitForExportDelay(activeMotionDuration * 1000 + 120, signal);
         setCameraMotionPlaying(false);
         setCameraMotionProgress(1);
         recorder.stop();
         await stopped;
         stream.getTracks().forEach((track) => track.stop());
+        activeRecorder = null;
+        activeStream = null;
 
         const blob = new Blob(chunks, { type: recordedMimeType });
         if (blob.size === 0) throw new Error("MP4 录制结果为空，请重新导出");
@@ -1221,6 +1267,8 @@ export function DirectorCanvas() {
           width: canvas.width,
         };
       } finally {
+        if (activeRecorder?.state !== "inactive") activeRecorder?.stop();
+        activeStream?.getTracks().forEach((track) => track.stop());
         restoreMediaExportPlayback(
           { playing: originalPlaying, progress: originalProgress },
           setCameraMotionPlaying,
@@ -1235,9 +1283,10 @@ export function DirectorCanvas() {
   }, [activeCamera, activeCameraMotionPath, activeMotionDuration, setCameraMotionPlaying, setCameraMotionProgress]);
 
   useEffect(() => {
-    setCleanFrameExportHandler(async ({ fileName, position, quality }) => {
+    setCleanFrameExportHandler(async ({ fileName, position, quality, signal }) => {
       if (!activeCamera) throw new Error("当前没有可导出的活动相机");
       if (mediaExportInProgressRef.current) throw new Error("已有导出任务正在进行，请稍后再试");
+      throwIfExportAborted(signal);
       mediaExportInProgressRef.current = true;
       const originalProgress = getRuntimePlaybackProgress();
       const originalPlaying = useDirectorStore.getState().cameraMotionPlaying;
@@ -1251,9 +1300,11 @@ export function DirectorCanvas() {
         setCameraMotionProgress(targetProgress);
         const startedWaitingAt = performance.now();
         while (!referenceVideoCanvasRef.current && performance.now() - startedWaitingAt < 2000) {
-          await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+          await waitForExportFrame(signal);
         }
-        await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+        await waitForExportFrame(signal);
+        await waitForExportFrame(signal);
+        throwIfExportAborted(signal);
         const canvas = referenceVideoCanvasRef.current;
         if (!canvas) throw new Error("当前浏览器无法导出成片帧");
         return {

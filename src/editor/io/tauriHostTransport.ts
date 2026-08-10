@@ -1,10 +1,9 @@
+import type { DirectorDeskTransportMessage, DirectorHostTransport } from "./directorHostTransport";
+
+export type { DirectorDeskTransportMessage } from "./directorHostTransport";
+
 export const DIRECTOR_DESK_HOST_EVENT = "director-desk:host-message";
 export const DIRECTOR_DESK_MESSAGE_EVENT = "director-desk:message";
-
-export interface DirectorDeskTransportMessage {
-  type: string;
-  payload?: Record<string, unknown>;
-}
 
 interface DirectorDeskTransportEnvelope {
   instanceId: string;
@@ -31,6 +30,8 @@ const ALLOWED_HOST_MESSAGE_TYPES = new Set([
   "storyai:director-desk-session",
   "storyai:director-desk-panorama",
   "storyai:director-desk:request",
+  "storyai:director-desk:cancel",
+  "storyai:director-desk-disconnect",
 ]);
 
 let activeInstanceId: string | null = null;
@@ -137,3 +138,9 @@ export function resetTauriDirectorHostTransportForTests() {
   unlistenHost = null;
   activeInstanceId = null;
 }
+
+export const tauriDirectorHostTransport: DirectorHostTransport = {
+  name: "tauri",
+  send: postTauriDirectorHostMessage,
+  listen: initTauriDirectorHostTransport,
+};

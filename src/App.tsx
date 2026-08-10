@@ -1,11 +1,13 @@
 import "./styles/index.css";
 import { useEffect, useState } from "react";
-import { ArrowDown, ArrowRight, BookOpen, Boxes, Check, Clock3, Hand, House, Keyboard, MousePointer2, Plus, Route, Sparkles, Trash2, Users, X } from "lucide-react";
+import { ArrowDown, ArrowRight, BookOpen, Boxes, Check, Clock3, Hand, House, Keyboard, MousePointer2, Plus, Route, Sparkles, Trash2, Users, X, } from "lucide-react";
 import { DirectorDeskShell } from "./app/layout/DirectorDeskShell";
 import { DirectorCanvas } from "./editor/canvas/DirectorCanvas";
 import { ViewportSensitivitySettings } from "./editor/canvas/ViewportSensitivitySettings";
 import {
+  DIRECTOR_DESK_HOST_DISCONNECTED_EVENT,
   DIRECTOR_DESK_SESSION_OPENED_EVENT,
+  DIRECTOR_DESK_SESSION_DENIED_EVENT,
   initDirectorDeskHostBridge,
   postDirectorDeskMessageToHost,
 } from "./editor/io/hostBridge";
@@ -29,8 +31,40 @@ import {
 } from "./editor/performance/performanceBenchmark";
 import { getBenchmarkPerformanceProfile } from "./editor/performance/performanceProfiles";
 import { PerformanceSettings } from "./editor/performance/PerformanceSettings";
+import { ProjectHealthIndicator } from "./editor/projectHealth/ProjectHealthIndicator";
 
-type AppScreen = "home" | "editor";
+type AppScreen = "home" | "editor" | "locked";
+type DirectorDeskLockReason =
+  | "authorization-required"
+  | "authorization-invalid"
+  | "authorization-expired"
+  | "authorization-refresh-failed"
+  | "host-disconnected";
+
+function getDirectorDeskLockCopy(reason: DirectorDeskLockReason) {
+  if (reason === "authorization-refresh-failed") {
+    return {
+      title: "ICA 授权续期失败",
+      description: "当前场景已锁定。请返回 ICA Canvas 后重试，重新验证登录和画布编辑权限。",
+    };
+  }
+  if (reason === "host-disconnected") {
+    return {
+      title: "ICA 连接已断开",
+      description: "当前场景已锁定。请返回 ICA Canvas 重新打开 3D 导演台。",
+    };
+  }
+  if (reason === "authorization-expired" || reason === "authorization-invalid") {
+    return {
+      title: "ICA 授权无效或已过期",
+      description: "当前场景已锁定。请返回 ICA Canvas 重新验证登录和画布编辑权限。",
+    };
+  }
+  return {
+    title: "请先登录 ICA",
+    description: "3D 导演台只允许已登录且对当前画布有编辑权限的用户使用。",
+  };
+}
 
 const HOME_QUICK_START_STEPS = [
   ["选择导演台", "打开已有导演台，或点击“新建导演台”创建一个空场景。"],
@@ -109,16 +143,17 @@ const HOME_MAC_GESTURES = [
 
 const HOME_TOOL_GROUPS = [
   ["顶部", "首页、切换导演台、导演/第一视角、运镜工作台、视角手感"],
-  ["视口工具栏", "移动、旋转、缩放、添加角色、路线常亮、导入模型、模型库、添加机位"],
+  ["视口工具栏", "移动、旋转、缩放、添加角色、路线常亮、导入模型、模型库、添加机位",],
   ["画面工具", "选择画幅、当前/四方位/十二方位截图、全屏"],
   ["底部时间轴", "回到开头、播放/暂停、拖动定位、总时长、记录点、删除当前点"],
-  ["运镜工作台", "开始掌镜、添加/插入/批量移动轨迹点、看路线、看成片、导出视频"],
+  ["运镜工作台", "开始掌镜、添加/插入/批量移动轨迹点、看路线、看成片、导出视频",],
   ["右侧属性", "对象 XYZ、姿势、动作、人物路线、场景地面与路径碰撞"],
 ] as const;
 
 function getUrlDirectorDeskInstanceId() {
   try {
-    return new URLSearchParams(window.location.search).get("instanceId")?.trim() || null;
+    return ( new URLSearchParams(window.location.search).get("instanceId")?.trim() || null
+    );
   } catch {
     return null;
   }
@@ -132,7 +167,7 @@ function updateUrlDirectorDeskInstanceId(id: string | null) {
     } else {
       url.searchParams.delete("instanceId");
     }
-    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`,);
   } catch {
     // Navigation state remains usable even if the embedding host blocks History API writes.
   }
@@ -152,7 +187,7 @@ function createInitialDirectorDeskViewState() {
       updatedAt: timestamp,
     };
     return {
-      records: [...records.filter((record) => record.id !== benchmarkId), benchmarkRecord],
+      records: [...records.filter((record) => record.id !== benchmarkId), benchmarkRecord,],
       activeDeskId: benchmarkId,
       screen: "editor" as AppScreen,
     };
@@ -160,7 +195,8 @@ function createInitialDirectorDeskViewState() {
   return {
     records,
     activeDeskId: urlInstanceId ?? getInitialDirectorDeskId(records) ?? records[0]?.id ?? "",
-    screen: urlInstanceId ? "editor" : ("home" as AppScreen),
+    screen: urlInstanceId?.startsWith("ica_canvas_")
+      ? "locked": urlInstanceId ? "editor" : ("home" as AppScreen),
   };
 }
 
@@ -184,7 +220,7 @@ function formatDirectorDeskUpdatedAt(value: string) {
 function isEditableShortcutTarget(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) return false;
 
-  return target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName);
+  return ( target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
 }
 
 export default function App() {
@@ -192,21 +228,24 @@ export default function App() {
   const viewMode = useDirectorStore((state) => state.viewMode);
   const setViewMode = useDirectorStore((state) => state.setViewMode);
   const motionStudioOpen = useDirectorStore((state) => state.motionStudioOpen);
-  const setMotionStudioOpen = useDirectorStore((state) => state.setMotionStudioOpen);
-  const [directorDeskView, setDirectorDeskView] = useState(createInitialDirectorDeskViewState);
+  const setMotionStudioOpen = useDirectorStore((state) => state.setMotionStudioOpen,
+  );
+  const project = useDirectorStore((state) => state.project);
+  const [directorDeskView, setDirectorDeskView] = useState(createInitialDirectorDeskViewState,);
+  const [lockReason, setLockReason] = useState<DirectorDeskLockReason>("authorization-required");
   const { records: directorDesks, activeDeskId, screen } = directorDeskView;
 
   function openDirectorDesk(
     id: string,
     records = directorDesks,
-    options: { loadScene?: boolean } = {}
+    options: { loadScene?: boolean } = {},
   ) {
     if (!id) return;
 
     const { loadScene = true } = options;
     const ensured = ensureDirectorDeskRecordForId(records, id);
     const nextRecords = touchDirectorDeskRecord(ensured.records, id);
-    setDirectorDeskView({ records: nextRecords, activeDeskId: id, screen: "editor" });
+    setDirectorDeskView({ records: nextRecords, activeDeskId: id, screen: "editor", });
     writeActiveDirectorDeskId(id);
     updateUrlDirectorDeskInstanceId(id);
     if (loadScene) {
@@ -221,15 +260,20 @@ export default function App() {
   }
 
   useEffect(() => {
-    initDirectorDeskHostBridge();
+    let cancelled = false;
+    void
+    initDirectorDeskHostBridge().then(() => {
+      if (!cancelled)
+        postDirectorDeskMessageToHost({ type: "storyai:director-desk-ready" });
+    });
     if (screen === "editor" && !benchmarkMode) {
       openDirectorDesk(activeDeskId, directorDesks);
     }
 
     if (benchmarkMode) {
       const state = useDirectorStore.getState();
-      const benchmarkProfile = getBenchmarkPerformanceProfile(window.location.search);
-      const benchmarkPlayback = getPerformanceBenchmarkPlayback(window.location.search);
+      const benchmarkProfile = getBenchmarkPerformanceProfile(window.location.search,);
+      const benchmarkPlayback = getPerformanceBenchmarkPlayback(window.location.search,);
       const benchmarkScene = getPerformanceBenchmarkSceneConfig(benchmarkMode);
       useDirectorStore.setState({
         ...state,
@@ -247,21 +291,40 @@ export default function App() {
         cameraMotionPlaying: benchmarkPlayback.playing,
         ...(benchmarkProfile ? { performanceProfile: benchmarkProfile } : {}),
       });
-    }
-
-    postDirectorDeskMessageToHost({ type: "storyai:director-desk-ready" });
+    }return () => {cancelled =true; };
   }, []);
 
   useEffect(() => {
     function handleHostSessionOpened(event: Event) {
       const instanceId = (event as CustomEvent<{ instanceId?: string }>).detail?.instanceId;
       if (instanceId) {
+        setLockReason("authorization-required");
         openDirectorDesk(instanceId, directorDesks, { loadScene: false });
       }
     }
+    function handleHostSessionDenied(event: Event) {
+      const reason = (event as CustomEvent<{ reason?: DirectorDeskLockReason }>).detail?.reason;
+      setLockReason(reason ?? "authorization-invalid");
+      setDirectorDeskView((current) => ({ ...current, screen: "locked" }));
+    }
+    function handleHostDisconnected() {
+      setDirectorDeskView((current) => ({ ...current, screen: "home" }));
+      updateUrlDirectorDeskInstanceId(null);
+    }
 
-    window.addEventListener(DIRECTOR_DESK_SESSION_OPENED_EVENT, handleHostSessionOpened);
-    return () => window.removeEventListener(DIRECTOR_DESK_SESSION_OPENED_EVENT, handleHostSessionOpened);
+    window.addEventListener(DIRECTOR_DESK_SESSION_OPENED_EVENT, handleHostSessionOpened,
+    );
+    window.addEventListener(
+      DIRECTOR_DESK_SESSION_DENIED_EVENT,
+      handleHostSessionDenied,);
+    window.addEventListener(DIRECTOR_DESK_HOST_DISCONNECTED_EVENT, handleHostDisconnected);
+    return () => { window.removeEventListener(DIRECTOR_DESK_SESSION_OPENED_EVENT, handleHostSessionOpened,);
+      window.removeEventListener(
+        DIRECTOR_DESK_SESSION_DENIED_EVENT,
+        handleHostSessionDenied,
+      );
+      window.removeEventListener(DIRECTOR_DESK_HOST_DISCONNECTED_EVENT, handleHostDisconnected);
+    };
   }, [directorDesks]);
 
   function handleCreateDesk() {
@@ -272,7 +335,7 @@ export default function App() {
   }
 
   function handleDeleteDesk(desk: DirectorDeskRecord) {
-    if (!window.confirm(`删除「${desk.name}」？这个导演台里的本地场景也会一起删除。`)) return;
+    if (!window.confirm(`删除「${desk.name}」？这个导演台里的本地场景也会一起删除。`,)) return;
 
     const result = deleteDirectorDeskRecord(directorDesks, desk.id);
     setDirectorDeskView({
@@ -317,6 +380,23 @@ export default function App() {
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, []);
+
+  if (screen === "locked") {
+    const lockCopy = getDirectorDeskLockCopy(lockReason);
+    return (
+      <main className="director-home-shell">
+        <section
+          className="director-home-empty"
+          role="status"
+          aria-label="导演台访问受限"
+        >
+          <Boxes aria-hidden="true" size={28} strokeWidth={1.6} />
+          <h1>{lockCopy.title}</h1>
+          <p>{lockCopy.description}</p>
+        </section>
+      </main>
+    );
+  }
 
   if (screen === "home") {
     return (
@@ -553,6 +633,7 @@ export default function App() {
           <PerformanceSettings />
         </div>
         <div className="top-bar-actions">
+          <ProjectHealthIndicator project={project} />
           <button
             className="top-bar-action-button"
             type="button"

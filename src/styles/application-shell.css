@@ -1331,7 +1331,42 @@
 
 .app-shell .top-bar-actions {
   justify-self: end;
+  align-items: center;
+  gap: 4px;
   padding: 8px;
+}
+
+.app-shell .project-health-indicator {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  gap: 6px;
+  padding: 0 9px;
+  border: 1px solid rgb(var(--border-rgb) / 0.28);
+  border-radius: 8px;
+  color: rgb(153 215 181);
+  background: rgb(42 137 88 / 0.12);
+  font-size: 11px;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.app-shell .project-health-indicator.has-local-assets {
+  border-color: rgb(238 166 54 / 0.22);
+  color: rgb(245 194 111);
+  background: rgb(180 112 28 / 0.14);
+}
+
+.app-shell .project-health-indicator.has-missing-assets {
+  border-color: rgb(232 82 82 / 0.3);
+  color: rgb(255 143 143);
+  background: rgb(176 42 42 / 0.16);
+}
+
+.app-shell .project-health-indicator.health-check-unavailable {
+  border-color: rgb(238 166 54 / 0.22);
+  color: rgb(245 194 111);
+  background: rgb(180 112 28 / 0.14);
 }
 
 .app-shell .top-bar-title {
